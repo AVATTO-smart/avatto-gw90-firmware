@@ -28,4 +28,4 @@ void progressFunc(unsigned int progress, unsigned int total);
 void getEspUpdate(String esp_fw_url);
 void runEspUpdateFirmware(uint8_t *data, size_t len);
 
-#define UPD_FILE "https://github.com/avatto/avatto-gw90-firmware/releases/latest/download/AVATTO-GW90-Ti.bin"
+#define UPD_FILE "https://github.com/AVATTO-smart/avatto-gw90-firmware/releases/latest/download/AVATTO-GW90-Ti.bin"

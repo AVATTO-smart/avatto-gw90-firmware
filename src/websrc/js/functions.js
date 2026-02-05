@@ -16,7 +16,7 @@ const headerBtnClose = ".modal-btn-close";
 const modalBody = ".modal-body";
 const modalBtns = ".modal-footer";
 
-const GITHUB_REPO_OWNER = "avatto";
+const GITHUB_REPO_OWNER = "AVATTO-smart";
 const GITHUB_REPO_NAME = "avatto-gw90-firmware";
 
 

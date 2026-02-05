@@ -1,0 +1,395 @@
+<div id="main">
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header">    
+         <img src="icon_wifi_config.svg" class="title_icon_style" />
+         <span>Wi-Fi</span>
+      </div>
+      <div class="card-body">
+        <form class="saveParams" method="POST" action="saveParams">
+          <div class="row">
+            <div class="mb-2 col-sm-12 col-md-6">
+              <div class="gauge-wrapper">
+                <!-- 外层光晕 -->
+                <div class="outer-glow"></div>
+
+                <!-- 外部进度圆环 -->
+                <svg class="progress-ring" width="220" height="220">
+                  <defs>
+                    <linearGradient
+                      id="ringGradient"
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="100%"
+                    >
+                      <stop offset="0%" stop-color="#ffcc80" />
+                      <stop offset="100%" stop-color="#ff9800" />
+                    </linearGradient>
+                  </defs>
+                  <!-- 背景灰色环 -->
+                  <circle
+                    class="progress-ring__bg"
+                    stroke-width="12"
+                    fill="transparent"
+                    r="90"
+                    cx="110"
+                    cy="110"
+                  />
+                  <!-- 动态进度环 -->
+                  <circle
+                    class="progress-ring__circle"
+                    stroke="url(#ringGradient)"
+                    stroke-width="20"
+                    fill="transparent"
+                    r="90"
+                    cx="110"
+                    cy="110"
+                  />
+                </svg>
+
+                <!-- 内部球体 -->
+                <div class="inner-ball">
+                  <div class="wave-layer"></div>
+                  <div class="percent-num"></div>
+                </div>
+              </div>
+              <div class="row justify-content-md-center">
+                <button
+                  type="button"
+                  id="wifiScanBtn"
+                  class="btn btn-outline-primary col-sm-12 col-md-6"
+                  onclick="getWifiList()"
+                >
+                     Scan Wi-Fi
+                </button>
+              </div>
+            </div>
+            <br />
+            <div class="mb-2 col-sm-12 col-md-6">
+              <div class="mb-2">
+                <div class="form-check form-switch">
+                  <input
+                    data-replace="dchp"
+                    class="form-check-input"
+                    id="dhcpWiFi"
+                    type="checkbox"
+                    role="switch"
+                    name="dhcpWiFi"
+                    onclick="WifiDhcpDsbl(this.checked)"
+                  />
+                  <label class="form-check-label" for="dhcpWiFi">DHCP</label>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label for="ip">IP</label>
+                <input
+                  data-replace="ip"
+                  class="form-control"
+                  id="WifiIp"
+                  type="text"
+                  name="ipAddress"
+                  placeholder="192.168.x.x"
+                />
+              </div>
+              <div class="mb-2">
+                <label for="mask">Subnet Mask</label>
+                <input
+                  data-replace="mask"
+                  class="form-control"
+                  id="WifiMask"
+                  type="text"
+                  name="ipMask"
+                  placeholder="255.255.255.0"
+                />
+              </div>
+              <div class="mb-2">
+                <label for="gateway">Default Gateway</label>
+                <input
+                  data-replace="gw"
+                  type="text"
+                  class="form-control"
+                  id="WifiGateway"
+                  name="ipGW"
+                  placeholder="192.168.x.x"
+                />
+              </div>
+            </div>
+            <br />
+          </div>
+          <div class="row">
+            <div class="mb-2 col-sm-12 col-md-6">
+              <table class="table table-hover" style="word-break: break-word; overflow-wrap: break-word;">
+                <thead>
+                  <tr>
+                    <th scope="col" style="word-break: break-word; overflow-wrap: break-word; max-width: 150px;">SSID</th>
+                    <th scope="col" style="word-break: break-word; overflow-wrap: break-word; max-width: 100px;">Security</th>
+                    <th scope="col" style="word-break: break-word; overflow-wrap: break-word; max-width: 80px;">Channel</th>
+                    <th scope="col" style="word-break: break-word; overflow-wrap: break-word; max-width: 80px;">RSSI</th>
+                  </tr>
+                </thead>
+                <tbody id="wifiTable">
+                  <tr id="wifiScanPreloader" class="visually-hidden">
+                    <td colspan="4" style="word-break: break-word; overflow-wrap: break-word;">
+                      <div class="progress">
+                        <div
+                          class="progress-bar progress-bar-striped progress-bar-animated"
+                          role="progressbar"
+                          aria-label="Animated striped example"
+                          aria-valuenow="100"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          style="width: 100%"
+                        ></div>
+                      </div>
+                    </td>
+                  </tr>
+                  <!-- <tr id="wifiScanButton">
+                    <td colspan="4">
+                      <div class="row justify-content-md-center">
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary col-sm-12 col-md-6"
+                          onclick="getWifiList()"
+                        >
+                          Scan for WIFI networks
+                        </button>
+                      </div>
+                    </td>
+                  </tr> -->
+                </tbody>
+              </table>
+              <div class="collapse" id="collapseWifiPass">
+                <div class="card card-body">
+                  <div class="mb-2">
+                    <label for="WIFISSID">SSID</label>
+                    <input
+                      data-replace="ssid"
+                      class="form-control"
+                      id="WIFIssid"
+                      type="text"
+                      name="WIFISSID"
+                      id="WIFISSID"
+                      value=""
+                      minlength="2"
+                      required
+                    />
+                  </div>
+                  <div class="mb-2">
+                    <label for="pass">Password</label>
+                    <input
+                      data-replace="passWifi"
+                      class="form-control"
+                      id="WIFIpassword"
+                      type="password"
+                      name="WIFIpassword"
+                      id="WIFIpassword"
+                      minlength="8"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-12">
+              <div class="row justify-content-md-center">
+                <button
+                  type="submit"
+                  class="btn btn-outline-primary col-sm-12 col-md-6"
+                  name="save"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+  :root {
+    --primary-color: #ffb131;
+    --percent: 0; /* 目标百分数 */
+    /* 圆周长计算：2 * Math.PI * 90(半径) = 565.48 */
+    --circumference: 565.48;
+  }
+
+  .gauge-wrapper {
+    position: relative;
+    /* width: 300px; */
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* 外层装饰光晕 - 增加呼吸感 */
+  .outer-glow {
+    position: absolute;
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      transparent 60%,
+      rgba(255, 177, 49, 0.15) 100%
+    );
+    animation: pulse 3s infinite ease-in-out;
+  }
+
+  /* SVG 容器旋转 - 让渐变色流动起来 */
+  .progress-ring {
+    transform: rotate(-90deg);
+    filter: drop-shadow(0 0 8px rgba(255, 177, 49, 0.3));
+  }
+
+  /* 底色圆环 */
+  .progress-ring__bg {
+    stroke: #fff1dc;
+  }
+
+  /* 进度圆环动画 */
+  .progress-ring__circle {
+    stroke-dasharray: var(--circumference);
+    stroke-dashoffset: var(--circumference); /* 初始全空 */
+    stroke-linecap: round;
+    transition: stroke-dashoffset 2s cubic-bezier(0.4, 0, 0.2, 1);
+    /* 赋予流光效果动画 */
+    animation: drawIn 2s forwards ease-out;
+  }
+
+  /* 内部球体容器 */
+  .inner-ball {
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    background-color: #fff;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow:
+      inset 0 0 20px rgba(0, 0, 0, 0.05),
+      0 10px 20px rgba(255, 152, 0, 0.2);
+    z-index: 5;
+  }
+
+  /* 波浪层 */
+  .wave-layer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: calc(var(--percent) * 1%);
+    background: linear-gradient(to top, #ff9800, #ffb131);
+  }
+
+  /* 波浪核心动画（原理：旋转异形遮罩） */
+  .wave-layer::before,
+  .wave-layer::after {
+    content: "";
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    left: 50%;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 43%; /* 关键：不规则圆形 */
+  }
+
+  .wave-layer::before {
+    bottom: 90%;
+    transform: translate(-50%, 0) rotate(0deg);
+    animation: rotateWave 8s infinite linear;
+  }
+
+  .wave-layer::after {
+    bottom: 85%;
+    background-color: rgba(255, 255, 255, 0.4);
+    transform: translate(-50%, 0) rotate(0deg);
+    animation: rotateWave 12s infinite linear;
+  }
+
+  .percent-num {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 28px;
+    font-weight: bold;
+    font-family: "Arial";
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+  }
+
+  /* --- 动画定义 --- */
+
+  /* 1. 外环画入动画 */
+  @keyframes drawIn {
+    to {
+      /* 计算公式: 周长 - (百分比 * 周长 / 100) */
+      stroke-dashoffset: calc(
+        var(--circumference) - (var(--percent) * var(--circumference) / 100)
+      );
+    }
+  }
+
+  /* 2. 波浪旋转动画 */
+  @keyframes rotateWave {
+    from {
+      transform: translate(-50%, 0) rotate(0deg);
+    }
+    to {
+      transform: translate(-50%, 0) rotate(360deg);
+    }
+  }
+
+  /* 3. 整体呼吸脉冲动画 */
+  @keyframes pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.5;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.8;
+    }
+  }
+  /* 进度环的过渡效果 */
+  .progress-ring__circle {
+    /* ... 之前的代码 ... */
+    transition: stroke-dashoffset 2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* 内部波浪高度的过渡效果 */
+  .wave-layer {
+    /* ... 之前的代码 ... */
+    transition: height 2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* WiFi 表格移动设备适配 - 支持换行 */
+  #wifiTable td {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    max-width: 150px;
+  }
+
+  /* 针对手机屏幕的进一步优化 */
+  @media (max-width: 768px) {
+    #wifiTable td {
+      max-width: 80px;
+      font-size: 0.875rem;
+      padding: 0.35rem !important;
+    }
+    
+    #wifiTable th {
+      max-width: 80px;
+      font-size: 0.75rem;
+      padding: 0.35rem !important;
+    }
+  }
+</style>

@@ -1,0 +1,8 @@
+marian-craciunescu/ESP32Ping@>=1.7
+rlogiacco/CircularBuffer@>=1.3.3
+bblanchon/ArduinoJson@6.21.3
+plerup/EspSoftwareSerial@8.1.0
+Martin-Laclaustra/CronAlarms
+knolleary/PubSubClient@^2.8
+sstaub/Ticker@>=4.4.0
+mathieucarbou/AsyncTCP@3.2.5

@@ -1,0 +1,296 @@
+<script language="javascript">
+  checkLatestESPrelease();
+</script>
+<div id="main">
+  <div class="row masonry" data-masonry='{"percentPosition": true }'>
+    <div class="col-sm-12 col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header fw-bold text-start text-primary">
+          <img src="icon_operating_mode.svg" class="title_icon_style" />
+          <span>Operating mode</span>
+        </div>
+        <div class="card-body" style="text-align: center">
+          <div class="machine_bg">
+            <img
+              id="machineImg"
+              src="device_operating_default.png"
+              width="95%"
+              height="100%"
+            />
+            <div class="machine_info">
+              <div class="info_item">
+                <img src="wifi_connection.svg" class="small_icon_style" />
+                <span>Switch</span>
+              </div>
+              <div class="info_item active">
+                <img src="lan_connection.svg" class="small_icon_style" />
+                <span>LAN</span>
+              </div>
+              <div class="info_item">
+                <img src="usb_connection.svg" class="small_icon_style" />
+                <span>USB</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-12 col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header fw-bold text-start text-primary">
+          <img src="icon_header_ethernet.svg" class="title_icon_style" />
+          <span>Ethernet</span>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <tbody>
+              <tr>
+                <td>Connection status:</td>
+                <td data-replace="ethConnection"></td>
+              </tr>
+              <tr>
+                <td>DHCP:</td>
+                <td data-replace="ethDhcp"></td>
+              </tr>
+              <tr>
+                <td>IP Address:</td>
+                <td data-replace="ethIp"></td>
+              </tr>
+              <tr>
+                <td>Mask:</td>
+                <td data-replace="etchMask"></td>
+              </tr>
+              <tr>
+                <td>Gateway:</td>
+                <td data-replace="ethGate"></td>
+              </tr>
+              <tr>
+                <td>Connection Speed:</td>
+                <td data-replace="ethSpd"></td>
+              </tr>
+              <tr>
+                <td>MAC:</td>
+                <td data-replace="ethMac"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-12 col-md-6 mb-4 item-box">
+      <div class="card small-card" style="width: 35%">
+        <div class="card-header fw-bold">
+          <img src="Time.svg" class="title_icon_style" />
+          <span>Uptime</span>
+        </div>
+        <div class="card-body" style="text-align: center">
+          <span data-replace="uptime"></span>
+        </div>
+      </div>
+      <div class="card small-card" style="width: 60%">
+        <div class="card-header fw-bold">
+          <img src="Temp.svg" class="title_icon_style" />
+          <span>Temperature</span>
+        </div>
+        <div class="card-body" style="text-align: center">
+          <div class="progress progress-div">
+            <div
+              id="prgTemp"
+              class="progress-bar progress-bar-striped progress-bar-animated"
+              role="progressbar"
+              style="width: 55%"
+            ></div>
+            <div class="progress-text">
+              <span data-replace="deviceTemp"></span> °C
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-12 col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header fw-bold text-start text-primary">
+          <img src="icon_header_hardware.svg" class="title_icon_style" />
+          <span>Device Status</span>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <tbody>
+              <tr>
+                <td>Operating mode:</td>
+                <td data-replace="operationalMode"></td>
+              </tr>
+              <tr>
+                <td>Ethernet:</td>
+                <td data-replace="connectedEther"></td>
+              </tr>
+              <!-- <tr>
+                <td>Socket client connected:</td>
+                <td data-replace="connectedSocketStatus"></td>
+              </tr> -->
+              <tr>
+                <td>WiFi Enabled:</td>
+                <td data-replace="wifiEnabled"></td>
+              </tr>
+              <tr>
+                <td>WiFi Status:</td>
+                <td data-replace="wifiConnected"></td>
+              </tr>
+              <tr>
+                <td>WiFi Access Point Enabled:</td>
+                <td data-replace="wifiModeAP"></td>
+              </tr>
+              <tr>
+                <td>WiFi Access Point Status:</td>
+                <td data-replace="wifiModeAPStatus"></td>
+              </tr>
+              <!-- <tr>
+                <td>Device Uptime:</td>
+                <td data-replace="uptime"></td>
+              </tr> -->
+              <tr>
+                <td>Connection Duration:</td>
+                <td data-replace="connectedSocket"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-12 col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header fw-bold text-start text-primary">
+          <img src="icon_header_hardware.svg" class="title_icon_style" />
+          <span>设备信息</span>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <tbody>
+              <tr>
+                <td>Zig-Star Model:</td>
+                <td data-replace="hwRev"></td>
+              </tr>
+              <tr>
+                <td>ESP32 Firmware Version:</td>
+                <td data-replace="VERSION"></td>
+              </tr>
+              <tr>
+                <td>ESP32 Hardware Version:</td>
+                <td data-replace="espModel"></td>
+              </tr>
+              <tr>
+                <!-- <td>ESP32 temperature:</td>
+                <td><span data-replace="deviceTemp"></span> °C</td> -->
+              </tr>
+              <tr>
+                <td>ESP32 Frequency:</td>
+                <td>
+                  <span data-replace="espCores"></span> Cores @
+                  <span data-replace="espFreq"></span> MHz
+                </td>
+              </tr>
+              <tr>
+                <td>ESP32 Flash Size:</td>
+                <td>
+                  <span data-replace="espFlashSize"></span> Mb,
+                  <span data-replace="espFlashType"></span>
+                </td>
+              </tr>
+              <tr>
+                <td>ESP32 Memory (Free/Total):</td>
+                <td>
+                  <span data-replace="espHeapFree"></span> /
+                  <span data-replace="espHeapSize"></span> KiB
+                </td>
+              </tr>
+              <tr>
+                <td>CC2652P Hardware Version:</td>
+                <td data-replace="zigbeeHwRev"></td>
+              </tr>
+              <!--<tr>
+                                <td>CC2652P flash size:</td>
+                                <td>352 Kb</td>
+                            </tr>-->
+              <tr>
+                <td>CC2652P Firmware Version:</td>
+                <td data-replace="zigbeeFwRev"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-12 col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header fw-bold text-start text-primary">
+          <img src="icon_header_wifi.svg" class="title_icon_style" />
+          <span>WiFi</span>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <tbody>
+              <tr>
+                <td>Mode:</td>
+                <td data-replace="wifiMode"></td>
+              </tr>
+              <tr>
+                <td>SSID:</td>
+                <td data-replace="wifiSsid"></td>
+              </tr>
+              <tr>
+                <td>IP:</td>
+                <td data-replace="wifiIp"></td>
+              </tr>
+              <tr>
+                <td>Subnet Mask:</td>
+                <td data-replace="wifiMask"></td>
+              </tr>
+              <tr>
+                <td>Gateway:</td>
+                <td data-replace="wifiGate"></td>
+              </tr>
+              <tr>
+                <td>Signal:</td>
+                <td data-replace="wifiRssi"></td>
+              </tr>
+              <tr>
+                <td>MAC:</td>
+                <td data-replace="wifiMac"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-12 col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header fw-bold text-start text-primary">
+          <img src="icon_header_vpn.svg" class="title_icon_style" />
+          <span>VPN</span>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <tbody>
+              <tr>
+                <td>Initialized:</td>
+                <td data-replace="wgInit"></td>
+              </tr>
+              <tr>
+                <td>IP Address:</td>
+                <td data-replace="wgDeviceAddr"></td>
+              </tr>
+              <tr>
+                <td>Remote Address:</td>
+                <td data-replace="wgRemoteAddr"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

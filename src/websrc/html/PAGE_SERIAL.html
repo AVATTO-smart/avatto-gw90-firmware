@@ -1,0 +1,126 @@
+<div id="main">
+  <form class="saveParams" method="POST" action="saveParams">
+    <div class="card">
+      <!-- <div class="card-header">串口设置</div> -->
+      <div class="card-header fw-bold text-start text-primary">
+        <img src="icon_serial_settings.svg" class="title_icon_style" />
+        <span>Serial Settings</span>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-12 col-md-6 mb-4">
+            <div class="form-group">
+              <label for="baud">Baud Rate</label>
+              <select class="form-select" id="baud" name="baud">
+                <option data-replace="9600" value="9600">9600 Baud</option>
+                <option data-replace="19200" value="19200">19200 Baud</option>
+                <option data-replace="38400" value="38400">38400 Baud</option>
+                <option data-replace="57600" value="57600">57600 Baud</option>
+                <option data-replace="115200" value="115200">
+                  115200 Baud
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-12 col-md-6 mb-4">
+            <div class="form-group">
+              <label for="port">Port</label>
+              <input
+                data-replace="socketPort"
+                class="form-control"
+                id="port"
+                type="number"
+                name="port"
+                min="100"
+                max="65000"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-12">
+          <div class="row justify-content-md-center">
+            <button
+              type="submit"
+              class="btn btn-outline-primary col-sm-12 col-md-6"
+              name="save"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="card mt-2">
+    <div class="card-header fw-bold text-start text-primary">
+      <img src="icon_config_generator.svg" class="title_icon_style" />
+      <span>Config Generator</span>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="form-group">
+            <div
+              class="alert alert-warning visually-hidden"
+              role="alert"
+              id="apAlert"
+            >
+              It seems that AVATTO-GW90-Ti is operating in access point mode (IP address is 192.168.1.1).
+              The IP address will change after connecting to Ethernet or Wi-Fi, and the configuration needs to be regenerated.
+            </div>
+            <label for="generatedFile"
+              >Config Generator:
+              <div class="ms-1 form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="generatorType"
+                  id="z2m"
+                  checked
+                  onclick="generateConfig(this.id)"
+                />
+                <label class="form-check-label" for="z2m">Zigbee2MQTT</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="generatorType"
+                  id="zha"
+                  onclick="generateConfig(this.id)"
+                />
+                <label class="form-check-label" for="zha">ZHA</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="generatorType"
+                  id="usb"
+                  onclick="generateConfig(this.id)"
+                />
+                <label class="form-check-label" for="usb">USB</label>
+              </div>
+            </label>
+            <textarea
+              class="form-control mb-2"
+              id="generatedFile"
+              name="file"
+              rows="12"
+            ></textarea>
+            <div class="row justify-content-md-center">
+              <button
+                type="button"
+                class="btn btn-outline-primary col-sm-12 col-md-4"
+                onclick="copyCode()"
+              >
+                Copy to Clipboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

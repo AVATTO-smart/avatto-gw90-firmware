@@ -44,7 +44,6 @@ void connectWifi();
 void handleLongBtn();
 void handleTmrNetworkOverseer();
 void setupCoordinatorMode();
-void networkStart();
 void startAP(const bool start);
 IPAddress parse_ip_address(const char *str);
 
@@ -62,19 +61,45 @@ extern CCTools CCTool;
 
 void initLan()
 {
+  Serial.println(F("\n[LAN] ======== initLan() START ========"));
+  Serial.print(F("[LAN] ETH_ADDR=")); Serial.print(ETH_ADDR_1);
+  Serial.print(F(" PWR_PIN=")); Serial.print(ETH_POWER_PIN_1);
+  Serial.print(F(" MDC=")); Serial.print(ETH_MDC_PIN_1);
+  Serial.print(F(" MDIO=")); Serial.print(ETH_MDIO_PIN_1);
+  Serial.print(F(" PWR_ALT=")); Serial.println(ETH_POWER_PIN_ALTERNATIVE_1);
+  Serial.print(F("[LAN] DHCP=")); Serial.println(ConfigSettings.dhcp);
+  if (!ConfigSettings.dhcp) {
+    Serial.print(F("[LAN] Static IP=")); Serial.println(ConfigSettings.ipAddress);
+    Serial.print(F("[LAN] Static GW=")); Serial.println(ConfigSettings.ipGW);
+    Serial.print(F("[LAN] Static Mask=")); Serial.println(ConfigSettings.ipMask);
+  }
+
+  // Hardware reset LAN8720 PHY via GPIO5 to ensure clean state after ESP.restart()
+  pinMode(ETH_POWER_PIN_ALTERNATIVE_1, OUTPUT);
+  digitalWrite(ETH_POWER_PIN_ALTERNATIVE_1, LOW);
+  delay(50);
+  digitalWrite(ETH_POWER_PIN_ALTERNATIVE_1, HIGH);
+  delay(300);
+
   if (ETH.begin(ETH_ADDR_1, ETH_POWER_PIN_1, ETH_MDC_PIN_1, ETH_MDIO_PIN_1, ETH_TYPE_1, ETH_CLK_MODE_1, ETH_POWER_PIN_ALTERNATIVE_1))
   {
-    DEBUG_PRINTLN(F("LAN start ok"));
+    Serial.println(F("[LAN] ETH.begin() SUCCESS"));
     if (!ConfigSettings.dhcp)
     {
-      DEBUG_PRINTLN(F("ETH STATIC"));
+      Serial.println(F("[LAN] Configuring static IP..."));
       ETH.config(parse_ip_address(ConfigSettings.ipAddress), parse_ip_address(ConfigSettings.ipGW), parse_ip_address(ConfigSettings.ipMask));
+      Serial.println(F("[LAN] Static IP configured"));
+    }
+    else
+    {
+      Serial.println(F("[LAN] Using DHCP"));
     }
   }
   else
   {
-    DEBUG_PRINTLN(F("LAN start err"));
+    Serial.println(F("[LAN] ETH.begin() FAILED!"));
   }
+  Serial.println(F("[LAN] ======== initLan() END ========\n"));
 }
 
 void startSocketServer()
@@ -108,15 +133,14 @@ void wgBegin()
 
 void startServers(bool usb = false)
 {
+  Serial.print(F("[SRV] startServers() called, usb=")); Serial.println(usb);
+  Serial.print(F("[SRV] connectedEther=")); Serial.println(ConfigSettings.connectedEther);
+  Serial.print(F("[SRV] WiFi.isConnected=")); Serial.println(WiFi.isConnected());
+  Serial.print(F("[SRV] apStarted=")); Serial.println(ConfigSettings.apStarted);
   initWebServer();
   if (!usb)
     startSocketServer();
-  // Only close AP if we have a successful network connection (WiFi or LAN)
-  // This prevents closing AP when it's the only way to access the device
-  if (!usb && (WiFi.isConnected() || ConfigSettings.connectedEther))
-  {
-    startAP(false); // Close AP when we have network connectivity
-  }
+  startAP(false);
   mDNS_start();
   getZbVer();
   if (WgSettings.enable)
@@ -132,12 +156,11 @@ void handleTmrNetworkOverseer()
   case COORDINATOR_MODE_WIFI:
     DEBUG_PRINT(F("WiFi.status = "));
     DEBUG_PRINTLN(WiFi.status());
-    
     if (WiFi.isConnected())
     {
       DEBUG_PRINTLN(F("WIFI CONNECTED"));
-      tmrNetworkOverseer.stop();
       startServers();
+      tmrNetworkOverseer.stop();
     }
     else
     {
@@ -146,49 +169,59 @@ void handleTmrNetworkOverseer()
         DEBUG_PRINTLN(F("WIFI counter overflow"));
         startAP(true);
         connectWifi();
-        tmrNetworkOverseer.stop();
       }
     }
     break;
-    
   case COORDINATOR_MODE_LAN:
+    Serial.print(F("[OVERSEER] LAN check: connectedEther="));
+    Serial.print(ConfigSettings.connectedEther);
+    Serial.print(F(" counter="));
+    Serial.println(tmrNetworkOverseer.counter());
     if (ConfigSettings.connectedEther)
     {
       DEBUG_PRINTLN(F("LAN CONNECTED"));
-      tmrNetworkOverseer.stop();
+      Serial.println(F("[OVERSEER] LAN connected! Starting servers..."));
       startServers();
-      if (ConfigSettings.apStarted)
-      {
-        startAP(false);
-      }
+      tmrNetworkOverseer.stop();
     }
     else
     {
       if (tmrNetworkOverseer.counter() > overseerMaxRetry)
       {
         DEBUG_PRINTLN(F("LAN counter overflow"));
+        Serial.print(F("[OVERSEER] LAN timeout! counter="));
+        Serial.print(tmrNetworkOverseer.counter());
+        Serial.print(F(" > maxRetry="));
+        Serial.println(overseerMaxRetry);
+        Serial.println(F("[OVERSEER] Starting AP as fallback..."));
         startAP(true);
-        tmrNetworkOverseer.stop();
       }
     }
     break;
-    
   case COORDINATOR_MODE_USB:
-    if (ConfigSettings.keepWeb)
-    {
-      if (WiFi.isConnected() || ConfigSettings.connectedEther)
+    if (tmrNetworkOverseer.counter() > 3)
+    { // 10 seconds for wifi connect
+      if (WiFi.isConnected())
       {
-        DEBUG_PRINTLN(F("USB mode: Network connected"));
         tmrNetworkOverseer.stop();
         startServers(true);
       }
-      else if (tmrNetworkOverseer.counter() > overseerMaxRetry)
+      else
       {
-        if (!ConfigSettings.apStarted)
-        {
-          startAP(true);
+        initLan();
+        if (tmrNetworkOverseer.counter() > 6)
+        { // 3sec for lan
+          if (ConfigSettings.connectedEther)
+          {
+            tmrNetworkOverseer.stop();
+            startServers(true);
+          }
+          else
+          {                            // no network interfaces
+            tmrNetworkOverseer.stop(); // stop timer
+            startAP(true);
+          }
         }
-        tmrNetworkOverseer.stop();
       }
     }
     break;
@@ -200,46 +233,51 @@ void handleTmrNetworkOverseer()
 
 void NetworkEvent(WiFiEvent_t event)
 {
-  DEBUG_PRINT(F("NetworkEvent "));
-  DEBUG_PRINTLN(event);
+  Serial.print(F("[NET_EVENT] Event ID: "));
+  Serial.println(event);
   switch (event)
   {
   case ARDUINO_EVENT_ETH_START:
-    DEBUG_PRINTLN(F("ETH Started"));
+    Serial.println(F("[ETH_EVENT] ETH Started"));
+    Serial.print(F("[ETH_EVENT] Setting hostname: ")); Serial.println(ConfigSettings.hostname);
     ETH.setHostname(ConfigSettings.hostname);
     break;
   case ARDUINO_EVENT_ETH_CONNECTED:
-    DEBUG_PRINTLN(F("ETH Connected"));
+    Serial.println(F("[ETH_EVENT] ETH Connected (link up)"));
     break;
   case ARDUINO_EVENT_ETH_GOT_IP:
-    DEBUG_PRINTLN(F("ETH MAC: "));
-    DEBUG_PRINT(ETH.macAddress());
-    DEBUG_PRINT(F(", IPv4: "));
-    DEBUG_PRINT(ETH.localIP());
+    Serial.println(F("[ETH_EVENT] ======== ETH GOT IP ========"));
+    Serial.print(F("[ETH_EVENT] MAC: ")); Serial.println(ETH.macAddress());
+    Serial.print(F("[ETH_EVENT] IPv4: ")); Serial.println(ETH.localIP());
+    Serial.print(F("[ETH_EVENT] Subnet: ")); Serial.println(ETH.subnetMask());
+    Serial.print(F("[ETH_EVENT] Gateway: ")); Serial.println(ETH.gatewayIP());
     if (ETH.fullDuplex())
     {
-      DEBUG_PRINT(F(", FULL_DUPLEX"));
+      Serial.println(F("[ETH_EVENT] FULL_DUPLEX"));
     }
-    DEBUG_PRINT(F(", "));
-    DEBUG_PRINT(ETH.linkSpeed());
-    DEBUG_PRINTLN(F("Mbps"));
+    Serial.print(F("[ETH_EVENT] Speed: ")); Serial.print(ETH.linkSpeed()); Serial.println(F("Mbps"));
     ConfigSettings.connectedEther = true;
+    Serial.println(F("[ETH_EVENT] connectedEther = true"));
+    Serial.println(F("[ETH_EVENT] ========================"));
     setClock();
     break;
   case ARDUINO_EVENT_ETH_DISCONNECTED: // 21:  //SYSTEM_EVENT_ETH_DISCONNECTED:
-    DEBUG_PRINTLN(F("ETH Disconnected"));
+    Serial.println(F("[ETH_EVENT] ETH Disconnected"));
+    Serial.print(F("[ETH_EVENT] coordinator_mode=")); Serial.println(ConfigSettings.coordinator_mode);
     ConfigSettings.connectedEther = false;
-    if (tmrNetworkOverseer.state() == STOPPED)
+    if (tmrNetworkOverseer.state() == STOPPED && ConfigSettings.coordinator_mode == COORDINATOR_MODE_LAN)
     {
+      Serial.println(F("[ETH_EVENT] Restarting overseer for LAN mode"));
       tmrNetworkOverseer.start();
     }
     break;
   case SYSTEM_EVENT_ETH_STOP:
   case ARDUINO_EVENT_ETH_STOP:
-    DEBUG_PRINTLN(F("ETH Stopped"));
+    Serial.println(F("[ETH_EVENT] ETH Stopped"));
     ConfigSettings.connectedEther = false;
     if (tmrNetworkOverseer.state() == STOPPED)
     {
+      Serial.println(F("[ETH_EVENT] Restarting overseer after ETH stop"));
       tmrNetworkOverseer.start();
     }
     break;
@@ -758,8 +796,8 @@ void startAP(const bool start)
     dnsServer.start(53, "*", apIP);
     WiFi.setSleep(false);
     // ConfigSettings.wifiAPenblTime = millis();
-    ConfigSettings.apStarted = true;
     startServers();
+    ConfigSettings.apStarted = true;
   }
 }
 
@@ -778,6 +816,7 @@ void connectWifi()
     DEBUG_PRINTLN(F("[connectWifi] timeout"));
   }
   WiFi.persistent(false);
+  esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B);
   if ((strlen(ConfigSettings.ssid) >= 2) && (strlen(ConfigSettings.password) >= 8))
   {
     DEBUG_PRINTLN(F("[connectWifi] Ok SSID & PASS"));
@@ -792,7 +831,6 @@ void connectWifi()
       WiFi.mode(WIFI_STA);
     }
     delay(100);
-    esp_wifi_set_protocol(WIFI_IF_STA, WIFI_PROTOCOL_11B);
 
     WiFi.begin(ConfigSettings.ssid, ConfigSettings.password);
     WiFi.setSleep(false);
@@ -813,15 +851,11 @@ void connectWifi()
   }
   else
   {
-    DEBUG_PRINTLN(F("[connectWifi] NO SSID & PASS"));
-    if (!ConfigSettings.connectedEther)
-    {
-      DEBUG_PRINTLN(F("[connectWifi] and LAN not connected"));
+    if (!(ConfigSettings.coordinator_mode == COORDINATOR_MODE_USB && ConfigSettings.keepWeb))
+    { // dont start ap in keepWeb
+      DEBUG_PRINTLN(F("[connectWifi] NO SSID & PASS"));
       startAP(true);
-    }
-    else
-    {
-      DEBUG_PRINTLN(F("[connectWifi] but LAN is OK"));
+      DEBUG_PRINTLN(F("[connectWifi] setupWifiAP"));
     }
   }
 }
@@ -1020,88 +1054,69 @@ void toggleUsbMode()
   Serial.println("[MODE] Restarting device...");
   Serial.println("==========================================\n");
   
-  // LED will be set correctly after restart by setLedsDisable()
+  digitalWrite(LED_USB, ConfigSettings.coordinator_mode == COORDINATOR_MODE_USB ? 1 : 0);
   ESP.restart();
-}
-
-void networkStart()
-{
-  // Register WiFi event handler once
-  static bool eventHandlerRegistered = false;
-  if (!eventHandlerRegistered) {
-    WiFi.onEvent(NetworkEvent);
-    eventHandlerRegistered = true;
-  }
-  
-  // Start network overseer
-  if (tmrNetworkOverseer.state() == STOPPED)
-  {
-    tmrNetworkOverseer.start();
-  }
-  
-  // Initialize network based on mode
-  switch (ConfigSettings.coordinator_mode)
-  {
-  case COORDINATOR_MODE_LAN:
-    initLan();
-    break;
-    
-  case COORDINATOR_MODE_WIFI:
-    connectWifi();
-    break;
-    
-  case COORDINATOR_MODE_USB:
-    if (ConfigSettings.keepWeb)
-    {
-      initLan();
-      connectWifi();
-    }
-    break;
-  }
 }
 
 void setupCoordinatorMode()
 {
-  Serial.println("\n========== COORDINATOR MODE SETUP ==========");
-  
+  Serial.println(F("\n======== setupCoordinatorMode() ========"));
   if (ConfigSettings.coordinator_mode > 2 || ConfigSettings.coordinator_mode < 0)
   {
-    Serial.println("[ERROR] Invalid mode! Resetting to LAN");
+    Serial.println(F("[MODE] WRONG MODE DETECTED, set to LAN"));
     ConfigSettings.coordinator_mode = COORDINATOR_MODE_LAN;
   }
-  
   const char* modeNames[] = {"LAN", "WiFi", "USB"};
-  Serial.print("[MODE] Current: ");
-  Serial.print(modeNames[ConfigSettings.coordinator_mode]);
-  Serial.print(" (");
-  Serial.print(ConfigSettings.coordinator_mode);
-  Serial.println(")");
-  
-  // Set MODE_SWITCH pin based on mode
-  if (ConfigSettings.coordinator_mode == COORDINATOR_MODE_USB)
+  Serial.print(F("[MODE] Mode: ")); Serial.print(modeNames[ConfigSettings.coordinator_mode]);
+  Serial.print(F(" (")); Serial.print(ConfigSettings.coordinator_mode); Serial.println(F(")"));
+  Serial.print(F("[MODE] keepWeb=")); Serial.println(ConfigSettings.keepWeb);
+  Serial.print(F("[MODE] disableWeb=")); Serial.println(ConfigSettings.disableWeb);
+  if (ConfigSettings.coordinator_mode != COORDINATOR_MODE_USB || ConfigSettings.keepWeb)
+  { // start network overseer
+    Serial.println(F("[MODE] Registering WiFi event & starting overseer timer"));
+    if (tmrNetworkOverseer.state() == STOPPED)
+    {
+      tmrNetworkOverseer.start();
+      Serial.println(F("[MODE] tmrNetworkOverseer started"));
+    }
+    WiFi.onEvent(NetworkEvent);
+    Serial.println(F("[MODE] NetworkEvent registered"));
+  }
+  else
   {
-    Serial.println("[MODE] MODE_SWITCH=HIGH (Zigbee->USB)");
+    Serial.println(F("[MODE] USB mode without keepWeb - no network overseer"));
+  }
+  switch (ConfigSettings.coordinator_mode)
+  {
+  case COORDINATOR_MODE_USB:
+    Serial.println(F("[MODE] -> USB: MODE_SWITCH=HIGH"));
     digitalWrite(MODE_SWITCH, 1);
+    break;
+
+  case COORDINATOR_MODE_WIFI:
+    Serial.println(F("[MODE] -> WIFI: calling connectWifi()"));
+    connectWifi();
+    break;
+
+  case COORDINATOR_MODE_LAN:
+    Serial.println(F("[MODE] -> LAN: calling initLan()"));
+    initLan();
+    break;
+
+  default:
+    break;
   }
-  else
+  if (!ConfigSettings.disableWeb && (ConfigSettings.coordinator_mode != COORDINATOR_MODE_USB || ConfigSettings.keepWeb))
   {
-    Serial.println("[MODE] MODE_SWITCH=LOW (Zigbee->Network)");
-    digitalWrite(MODE_SWITCH, 0);
-  }
-  
-  // Enable web server if needed
-  if (!ConfigSettings.disableWeb && 
-      (ConfigSettings.coordinator_mode != COORDINATOR_MODE_USB || ConfigSettings.keepWeb))
-  {
-    Serial.println("[WEB] Server enabled");
     updWeb = true;
+    Serial.println(F("[MODE] Web server enabled (updWeb=true)"));
   }
-  else
+  if (ConfigSettings.coordinator_mode == COORDINATOR_MODE_USB && ConfigSettings.keepWeb)
   {
-    Serial.println("[WEB] Server disabled");
+    Serial.println(F("[MODE] USB+keepWeb: trying connectWifi()"));
+    connectWifi();
   }
-  
-  Serial.println("==========================================\n");
+  Serial.println(F("======== setupCoordinatorMode() END ========\n"));
 }
 
 // void cmd2zigbee(const HardwareSerial serial, byte cmd[], const byte size){
@@ -1140,8 +1155,7 @@ void setup()
   pinMode(LED_USB, OUTPUT);
   pinMode(BTN, INPUT);
   pinMode(MODE_SWITCH, OUTPUT);
-  // Don't set MODE_SWITCH here - let setupCoordinatorMode handle it based on actual mode
-  // This prevents wrong initial state
+  digitalWrite(MODE_SWITCH, 0); // enable zigbee serial
   digitalWrite(LED_PWR, 1);
   digitalWrite(LED_USB, 1);
 
@@ -1227,13 +1241,7 @@ void setup()
   Serial.print("[INIT] disableLeds config: ");
   Serial.println(ConfigSettings.disableLeds ? "true" : "false");
   setLedsDisable(ConfigSettings.disableLeds, true);
-  
-  // First set up coordinator mode (MODE_SWITCH pin)
   setupCoordinatorMode();
-  
-  // Then start network
-  networkStart();
-  
   ConfigSettings.connectedClients = 0;
 
   if (MqttSettings.enable)

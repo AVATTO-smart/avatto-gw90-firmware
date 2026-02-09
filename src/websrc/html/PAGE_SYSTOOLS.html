@@ -435,7 +435,7 @@
                   id="updButton"
                   type="submit"
                   class="btn btn-warning mb-2"
-                  value="ESP32文件更新"
+                  value="ESP32 file update"
                   disabled
                 />
                 <br />
@@ -459,7 +459,7 @@
                       id="upd_esp_git"
                       class="btn btn-warning col-sm-12 mb-2"
                     >
-                      从Github安装最新版本
+                      Install latest from Github
                     </button>
                   </div>
                   <div class="row">
@@ -468,7 +468,7 @@
                       id="info_esp_git"
                       class="btn btn-outline-warning col-sm-12 flsh_esp mb-2"
                     >
-                      显示版本信息
+                      Show version information
                     </button>
                   </div>
                 </div>
@@ -561,15 +561,14 @@
       function sub(obj) {
         let fileName = obj.value.split("\\\\");
         if (fileName != "") {
-          $("#updButton").removeAttr("disabled");
           localStorage.setItem("beta_feedback", 0);
-          /* if (!(localStorage.getItem('flash_warning') == 1)) {
+          if (!(localStorage.getItem('flash_warning') == 1)) {
             modalConstructor("flashWarning");
           } else {
             $("#updButton").removeAttr("disabled");
-          } */
+          }
         } else {
-          $("#updButton").prop(disbl, 1);
+          $("#updButton").prop("disabled", true);
         }
         document.getElementById("file-input").innerHTML =
           "   " + fileName[fileName.length - 1];
@@ -579,7 +578,7 @@
         if (fileName != "") {
           $("#updButton_zb").removeAttr("disabled");
         } else {
-          $("#updButton_zb").prop(disbl, 1);
+          $("#updButton_zb").prop("disabled", true);
         }
         document.getElementById("file-input_zb").innerHTML =
           "   " + fileName[fileName.length - 1];
@@ -589,13 +588,11 @@
         var form = $("#upload_form")[0];
         var data = new FormData(form);
 
-        ESPfwStartEvents();
+        $("#updButton").prop("disabled", true);
+        $('#prg').html('Uploading firmware...');
+        $('#bar').css('width', '0%');
 
-        //setTimeout(function () {
-        //	$.get(apiLink + api.actions.API_CMD + "&cmd=9", function (data) { });
-        //	console.log("[flash] start");
-        //	$('#prg').html('Github download starting...');
-        //}, 500);
+        ESPfwStartEvents();
 
         $.ajax({
           url: "/update",
@@ -605,23 +602,25 @@
           processData: false,
           xhr: function () {
             var xhr = new window.XMLHttpRequest();
-            //xhr.upload.addEventListener('progress', function (evt) {
-            //  if (evt.lengthComputable) {
-            //    var per = evt.loaded / evt.total;
-            //    $('#prg').html('progress: ' + Math.round(per * 100) + '%');
-            //    $('#bar').css('width', Math.round(per * 100) + '%');
-            //  }
-            //}, false);
+            xhr.upload.addEventListener('progress', function (evt) {
+              if (evt.lengthComputable) {
+                var per = evt.loaded / evt.total;
+                $('#prg').html('Uploading: ' + Math.round(per * 100) + '%');
+                $('#bar').css('width', Math.round(per * 100) + '%');
+              }
+            }, false);
 
             return xhr;
           },
           success: function (d, s) {
             console.log("Success!");
-            //$('#prg').html('Update completed!<br>Rebooting!');
-            //window.location.href = '/';
-            //rebootWait();
           },
-          error: function (a, b, c) {},
+          error: function (xhr, status, error) {
+            console.log("ESP32 update error: " + status + " - " + error);
+            $('#prg').html('<span style="color:red">Firmware upload failed!</span><br>' + (error || 'Please check network connection and retry'));
+            $('#bar').css('width', '0%');
+            $("#updButton").removeAttr("disabled");
+          },
         });
       });
       $("form#upload_form_zb").submit(function (e) {
@@ -658,10 +657,12 @@
               "Upload and verification complete! <br>Starting flashing...",
             );
             $("#bar_zb").css("width", "0%");
-            //window.location.href = '/';
-            //rebootWait();
           },
-          error: function (a, b, c) {},
+          error: function (xhr, status, error) {
+            console.log("Zigbee update error: " + status + " - " + error);
+            $('#prg_zb').html('<span style="color:red">Firmware upload failed!</span><br>' + (error || 'Please check network connection and retry'));
+            $('#bar_zb').css('width', '0%');
+          },
         });
       });
 

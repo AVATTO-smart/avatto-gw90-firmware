@@ -134,6 +134,7 @@ function generateConfig(params) {
 serial:
   # Location of AVATTO-GW90-Ti
   port: tcp://${ip}:${port}
+  adapter: zstack
   baudrate: ${$("#baud").val()}
   # Disable Zigbee (Y or W) led?
   disable_led: false

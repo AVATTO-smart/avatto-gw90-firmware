@@ -6,7 +6,7 @@
             "avatto_mg24_zigbee_stable_8.0.2.gbl": 
             {
                 "ver": "20260314",
-                "link": "https://raw.githubusercontent.com/AVATTO-smart/avatto-gw90-firmware/zb_fw/MG24/router/avatto_mg24_zigbee_stable_8.0.2.gbl",
+                "link": "https://raw.githubusercontent.com/AVATTO-smart/avatto-gw90-firmware/zb_fw/MG24/avatto_mg24_zigbee_stable_8.0.2.gbl",
                 "notes": "Updated SimpleLink SDK to 8.0.2",
                 "baud": "115200"
             }

@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug UI</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="../src/websrc/css/bootstrap.min.css" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../src/websrc/css/required.css" />
+    <link rel="stylesheet" href="../src/websrc/css/style.css" />
+
+    <style>
+      /* ====================================
+           调试专用样式 - 在这里添加/测试新样式
+           ==================================== */
+
+      /* 调试工具栏样式 */
+      .debug-note {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 10px 20px;
+        background: #ffc107;
+        border-radius: 5px;
+        z-index: 9999;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .page-selector {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 9998;
+        background: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .page-selector select {
+        margin-left: 10px;
+        border: 1px solid #ddd;
+        padding: 5px 10px;
+        border-radius: 4px;
+      }
+
+      /* 侧边栏样式 - 匹配 PAGE_LOADER.html */
+      .bg-dark-grey {
+        background-color: #1a1a1a;
+      }
+
+      .nav-shadow {
+        box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .logo-wrapper {
+        padding: 1rem;
+        text-align: center;
+        margin-bottom: 1rem;
+        width: 100%;
+      }
+
+      .logo-wrapper a {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .logo-wrapper img {
+        height: 30px;
+        width: auto;
+      }
+
+      #sidenav .nav-pills .nav-link {
+        color: #fff;
+        padding: 0.75rem 1rem;
+        margin: 0.25rem 0.5rem;
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      #sidenav .nav-pills .nav-link:hover {
+        /* background-color: rgba(255, 255, 255, 0.1); */
+        color: #f5a623;
+      }
+
+      #sidenav .nav-pills .nav-link.active {
+        color: #f5a623;
+      }
+
+      #sidenav .nav-pills .nav-link svg {
+        flex-shrink: 0;
+      }
+
+      #sidenav hr {
+        border-color: rgba(255, 255, 255, 0.2);
+        width: 90%;
+        margin: 1rem auto;
+      }
+
+      /* 主内容区标题 */
+      #pagenamePC {
+        color: #2c3e50;
+        font-weight: 600;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 0.5rem;
+      }
+
+      .style-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9997;
+      }
+
+      .style-toggle button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 50px;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s;
+      }
+
+      .style-toggle button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
+      }
+
+      /* ====================================
+           测试区域 - 在下方添加您的样式测试
+           ==================================== */
+
+      /* 示例：美化卡片（取消注释以启用）
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+        }
+        */
+
+      /* 示例：渐变按钮（取消注释以启用）
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        */
+
+      /* 示例：优化表格（取消注释以启用）
+        .table td:first-child {
+            font-weight: 500;
+            color: #6c757d;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.05);
+        }
+        */
+
+      /* 您的自定义样式 - 在此处添加 👇 */
+
+      /* System Tools 页面样式 */
+      #prgbar,
+      #prgbar_zb {
+        width: 100%;
+        height: 30px;
+        background-color: #f0f0f0;
+        border-radius: 5px;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+
+      #bar,
+      #bar_zb {
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        transition: width 0.3s ease;
+        width: 0%;
+      }
+
+      #prg,
+      #prg_zb {
+        font-weight: 500;
+        margin-bottom: 10px;
+        color: #2c3e50;
+      }
+
+      #file-input,
+      #file-input_zb {
+        display: inline-block;
+        padding: 8px 16px;
+        background-color: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-bottom: 10px;
+        transition: all 0.3s;
+      }
+
+      #file-input:hover,
+      #file-input_zb:hover {
+        border-color: #3498db;
+        background-color: #e9ecef;
+      }
+
+      /* 标签页样式优化 */
+      .nav-tabs {
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 20px;
+      }
+
+      .nav-tabs .nav-link {
+        color: #6c757d;
+        border: none;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        padding: 0.75rem 1rem;
+      }
+
+      .nav-tabs .nav-link:hover {
+        border-bottom-color: #dee2e6;
+        color: #495057;
+      }
+
+      .nav-tabs .nav-link.active {
+        color: #3498db;
+        border-bottom-color: #3498db;
+        background: transparent;
+        font-weight: 500;
+      }
+
+      /* 标签页内容容器 */
+      .tab-content {
+        position: relative;
+        min-height: 400px;
+      }
+
+      .tab-pane {
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+      }
+
+      .tab-pane.active {
+        display: block;
+        opacity: 1;
+      }
+
+      /* 修复 Masonry 布局问题 */
+      .tab-pane .masonry {
+        width: 100%;
+      }
+
+      .tab-pane .masonry::after {
+        content: "";
+        display: block;
+        clear: both;
+      }
+
+      .tab-pane .masonry .col-sm-12,
+      .tab-pane .masonry .col-md-6 {
+        float: left;
+      }
+      .lang_select {
+        background-color: #111 !important;
+        border: none !important;
+        font-size: 0.83rem !important;
+        width: auto !important;
+        color: fff !important;
+      }
+
+      .ui_set {
+        /*display: flex;*/
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        padding-left: 0.25em !important;
+        padding-right: 0.25em !important;
+        margin-top: 1em;
+      }
+
+      /* 文件浏览器表格样式 */
+      #filelist {
+        margin-top: 0;
+      }
+
+      #filelist tbody tr {
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      #filelist tbody tr:hover {
+        background-color: #f8f9fa;
+      }
+
+      /* 调试控制台样式 */
+      #console {
+        font-family: "Courier New", monospace;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        border: 1px solid #444;
+        border-radius: 4px;
+        padding: 10px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- <div class="debug-note">
+        🔧 Debug Mode - Live Preview
+    </div>
+    
+    <div class="style-toggle">
+        <button onclick="window.open('style-examples.css', '_blank')" title="查看样式示例">
+            🎨 样式示例
+        </button>
+    </div> -->
+
+    <div class="page-selector">
+      <label for="pageSelect"><strong>选择页面:</strong></label>
+      <select
+        id="pageSelect"
+        class="form-select form-select-sm"
+        style="width: 220px; display: inline-block"
+      >
+        <option value="root">Status (Dashboard)</option>
+        <option value="general">General</option>
+        <option value="ethernet">Ethernet</option>
+        <option value="wifi">WiFi</option>
+        <option value="serial">Z2M and ZHA</option>
+        <option value="security">Security</option>
+        <option value="mqtt">MQTT</option>
+        <option value="wg">WireGuard</option>
+        <option value="systools">System and Tools</option>
+        <option value="about">About</option>
+        <option value="PAGE_LOADER">Page Loader</option>
+      </select>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="container-fluid">
+      <div class="row flex-nowrap">
+        <!-- 侧边栏 - 参考 PAGE_LOADER.html -->
+        <div
+          id="sidenav"
+          class="col-auto nav-container px-0 col-md-3 col-xl-2 bg-dark-grey nav-shadow"
+        >
+          <div
+            class="d-flex flex-column align-items-center align-items-sm-start pt-2 text-white min-vh-100"
+          >
+            <!-- Logo 区域 -->
+            <div class="logo-wrapper">
+              <a>
+                <img
+                  src="../src/websrc/img/AVATTO.svg"
+                  class="d-inline-block align-text-middle"
+                  alt="Logo"
+                />
+              </a>
+            </div>
+
+            <!-- 导航菜单 -->
+            <ul
+              class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start"
+              id="menu"
+            >
+              <li class="nav-item">
+                <a
+                  href="#"
+                  class="nav-link align-middle active"
+                  data-page="root"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-house"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#house" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">Status</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="general">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-hdd-stack"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#hdd-stack" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">General</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="ethernet">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-ethernet"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#ethernet" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">Ethernet</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="wifi">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-wifi"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#wifi" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">WiFi</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="serial">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-activity"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#activity" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">Z2M and ZHA</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="security">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-lock"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#lock" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">Security</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="mqtt">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-mqtt"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#mqtt" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">MQTT</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="wg">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-vpn"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#vpn" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">WireGuard</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="systools">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-cpu"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#cpu" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">System and Tools</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="#" class="nav-link align-middle" data-page="about">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="25"
+                    height="25"
+                    fill="currentColor"
+                    class="bi bi-info-square"
+                    viewBox="0 0 16 16"
+                  >
+                    <use xlink:href="../src/websrc/img/icons.svg#info-square" />
+                  </svg>
+                  <span class="ms-1 d-none d-sm-inline">About</span>
+                </a>
+              </li>
+              <li class="nav-item class ui_set hstack">
+                <div>
+                  <select
+                    class="form-select rounded-pill lang_select"
+                    id="langSel"
+                    aria-label="Language"
+                  ></select>
+                </div>
+              </li>
+            </ul>
+            <hr />
+          </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="col py-3">
+          <h2 id="pagenamePC" class="mb-3">Dashboard</h2>
+          <div id="content-area" class="container">
+            <!-- 内容将通过 JavaScript 动态加载 -->
+          </div>
+          <h6
+            class="fixed-bottom"
+            style="
+              text-align: right;
+              color: #0000007a;
+              margin-bottom: 0;
+              font-weight: 100;
+              font-size: 60%;
+            "
+          >
+            © 2023 ZigStar
+          </h6>
+        </div>
+      </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="../src/websrc/js/jquery-min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="../src/websrc/js/bootstrap.min.js"></script>
+    <!-- Masonry JS -->
+    <script src="../src/websrc/js/masonry.js"></script>
+    <!-- 模拟数据和功能 -->
+    <script src="mock-data.js"></script>
+    <script src="debug-functions.js"></script>
+  </body>
+</html>

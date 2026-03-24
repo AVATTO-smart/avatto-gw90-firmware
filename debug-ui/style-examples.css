@@ -1,0 +1,328 @@
+/**
+ * 样式示例和测试区域
+ * 
+ * 这个文件包含一些常用的样式优化示例
+ * 您可以复制这些样式到 index.html 的 <style> 标签中进行测试
+ */
+
+/* ============================================
+   卡片样式优化
+   ============================================ */
+
+/* 现代化卡片设计 */
+.card-modern {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* 卡片头部渐变 */
+.card-header-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+    border: none;
+    padding: 1rem 1.25rem;
+}
+
+/* 玻璃态效果卡片 */
+.card-glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+}
+
+/* ============================================
+   按钮样式优化
+   ============================================ */
+
+/* 渐变按钮 */
+.btn-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.btn-gradient-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    color: white;
+}
+
+/* 霓虹按钮效果 */
+.btn-neon {
+    border: 2px solid #667eea;
+    color: #667eea;
+    background: transparent;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-neon:hover {
+    color: white;
+    background: #667eea;
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.6);
+}
+
+/* 圆角柔和按钮 */
+.btn-soft {
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+/* ============================================
+   表格样式优化
+   ============================================ */
+
+/* 斑马纹表格 */
+.table-striped-custom tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 123, 255, 0.03);
+}
+
+/* 悬停效果 */
+.table-hover-custom tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.08);
+    transition: background-color 0.2s ease;
+}
+
+/* 表格边框优化 */
+.table-bordered-custom {
+    border: none;
+}
+
+.table-bordered-custom td,
+.table-bordered-custom th {
+    border-top: 1px solid #e9ecef;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+}
+
+/* 表格单元格对齐 */
+.table td:first-child {
+    font-weight: 500;
+    color: #6c757d;
+    width: 40%;
+}
+
+.table td:last-child {
+    color: #212529;
+    font-weight: 400;
+}
+
+/* ============================================
+   表单样式优化
+   ============================================ */
+
+/* 现代化输入框 */
+.form-control-modern {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px 15px;
+    transition: all 0.3s ease;
+}
+
+.form-control-modern:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+}
+
+/* 开关样式优化 */
+.form-switch .form-check-input {
+    width: 3rem;
+    height: 1.5rem;
+    cursor: pointer;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+/* ============================================
+   导航栏样式优化
+   ============================================ */
+
+/* 侧边栏美化 */
+.sidebar {
+    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+    border-right: 1px solid #e9ecef;
+}
+
+.nav-link {
+    border-radius: 8px;
+    margin: 4px 8px;
+    padding: 10px 15px;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    background-color: rgba(0, 123, 255, 0.08);
+    transform: translateX(4px);
+}
+
+.nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+}
+
+/* ============================================
+   状态指示器
+   ============================================ */
+
+/* 成功/错误/警告标签 */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* 连接状态指示灯 */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-indicator.online {
+    background-color: #28a745;
+    box-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
+}
+
+.status-indicator.offline {
+    background-color: #dc3545;
+}
+
+/* ============================================
+   动画效果
+   ============================================ */
+
+/* 淡入动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease;
+}
+
+/* 脉冲效果 */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* ============================================
+   响应式优化
+   ============================================ */
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    .card {
+        background-color: #2d3748;
+        color: #e2e8f0;
+    }
+    
+    .table {
+        color: #e2e8f0;
+    }
+}
+
+/* ============================================
+   实用工具类
+   ============================================ */
+
+/* 阴影效果 */
+.shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.shadow-medium {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+}
+
+.shadow-strong {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16) !important;
+}
+
+/* 圆角变体 */
+.rounded-soft {
+    border-radius: 8px !important;
+}
+
+.rounded-medium {
+    border-radius: 12px !important;
+}
+
+.rounded-strong {
+    border-radius: 16px !important;
+}
+
+/* 间距优化 */
+.spacing-comfortable {
+    padding: 1.5rem;
+}
+
+.spacing-compact {
+    padding: 0.75rem;
+}

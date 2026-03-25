@@ -1613,6 +1613,37 @@ void zigbeeReveivePktProcess(void)
   }
 }
 
+
+void factory_initLan()
+{
+  Serial.println(F("\n[LAN] ======== initLan() START ========"));
+  Serial.print(F("[LAN] ETH_ADDR=")); Serial.print(ETH_ADDR_1);
+  Serial.print(F(" PWR_PIN=")); Serial.print(ETH_POWER_PIN_1);
+  Serial.print(F(" MDC=")); Serial.print(ETH_MDC_PIN_1);
+  Serial.print(F(" MDIO=")); Serial.print(ETH_MDIO_PIN_1);
+  Serial.print(F(" PWR_ALT=")); Serial.println(ETH_POWER_PIN_ALTERNATIVE_1);
+  Serial.print(F("[LAN] DHCP=")); Serial.println(ConfigSettings.dhcp);
+
+  // Hardware reset LAN8720 PHY via GPIO5 to ensure clean state after ESP.restart()
+  pinMode(ETH_POWER_PIN_ALTERNATIVE_1, OUTPUT);
+  digitalWrite(ETH_POWER_PIN_ALTERNATIVE_1, LOW);
+  delay(50);
+  digitalWrite(ETH_POWER_PIN_ALTERNATIVE_1, HIGH);
+  delay(300);
+
+  if (ETH.begin(ETH_ADDR_1, ETH_POWER_PIN_1, ETH_MDC_PIN_1, ETH_MDIO_PIN_1, ETH_TYPE_1, ETH_CLK_MODE_1, ETH_POWER_PIN_ALTERNATIVE_1))
+  {
+    Serial.println(F("[LAN] ETH.begin() SUCCESS"));
+    Serial.println(F("[LAN] Using DHCP"));
+  }
+  else
+  {
+    Serial.println(F("[LAN] ETH.begin() FAILED!"));
+  }
+  Serial.println(F("[LAN] ======== initLan() END ========\n"));
+}
+
+
 void testTaskFunction(void *pvParameters)
 {
   Serial.println("[TEST TASK] Test task started!");
@@ -1620,9 +1651,12 @@ void testTaskFunction(void *pvParameters)
   // ========== 连接 WiFi AP ==========
   Serial.println("\n[TEST TASK] ========== Connecting to WiFi AP ==========");
   
-  const char* testSSID = "ez_factory_test";
-  const char* testPASS = "";  // 如果 AP 有密码，在这里设置
-  
+  const char* testSSID = "ezsmart_rd";
+  const char* testPASS = "ezsmart@2022";  // 如果 AP 有密码，在这里设置
+  //关指示灯
+  digitalWrite(LED_PWR, 0);
+  digitalWrite(LED_USB, 1);
+
   // 设置 WiFi 模式为 STA
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
@@ -1662,11 +1696,11 @@ void testTaskFunction(void *pvParameters)
       {
         Serial.println("[TEST TASK] Signal: EXCELLENT");
       }
-      else if (currentRSSI >= -65)
+      else if (currentRSSI >= -60)
       {
         Serial.println("[TEST TASK] Signal: GOOD");
       }
-      else if (currentRSSI >= -75)
+      else if (currentRSSI >= -70)
       {
         Serial.println("[TEST TASK] Signal: FAIR");
       }
@@ -1701,10 +1735,9 @@ void testTaskFunction(void *pvParameters)
   uint32_t wifiFailCount = 0;
   
   // 先进行 10 次 WiFi 测试（约 50 秒）
-  while (wifiTestCounter < 10)
+  while (wifiTestCounter < 3)
   {
     wifiTestCounter++;
-    delay(5000);  // 每 5 秒测试一次
     
     Serial.println("\n========================================");
     Serial.println("         WIFI TEST                      ");
@@ -1819,7 +1852,7 @@ void testTaskFunction(void *pvParameters)
     
     Serial.println("========================================\n");
   }
-  
+
   // ========== LAN 网络测试 ==========
   Serial.println("\n[TEST TASK] ========== LAN NETWORK TEST START ==========");
   
@@ -1827,11 +1860,12 @@ void testTaskFunction(void *pvParameters)
   uint32_t lanSuccessCount = 0;
   uint32_t lanFailCount = 0;
   
+  factory_initLan();
+  delay(1000);
   // 进行 10 次 LAN 测试（约 50 秒）
-  while (lanTestCounter < 10)
+  while (lanTestCounter < 3)
   {
     lanTestCounter++;
-    delay(5000);  // 每 5 秒测试一次
     
     Serial.println("\n========================================");
     Serial.println("         LAN TEST                       ");
@@ -1842,42 +1876,37 @@ void testTaskFunction(void *pvParameters)
     bool lanConnected = false;
     
     // 1. 检测物理连接
-    if (ETH.linkUp())
+     if (ETH.linkUp())
     {
-      Serial.println("[LAN TEST] Physical Link: UP");
-      Serial.print("[LAN TEST] Link Speed: ");
-      Serial.print(ETH.linkSpeed());
-      Serial.println(" Mbps");
-      Serial.print("[LAN TEST] Full Duplex: ");
-      Serial.println(ETH.fullDuplex() ? "YES" : "NO");
+        Serial.println("[LAN TEST] Physical Link: UP");
+        Serial.print("[LAN TEST] Link Speed: ");
+        Serial.print(ETH.linkSpeed());
+        Serial.println(" Mbps");
+        
+        // 检查 IP 配置
+        if (ETH.localIP() != IPAddress(0, 0, 0, 0))
+        {
+            Serial.println("[LAN TEST] ETH IP Status: VALID");
+            Serial.print("[LAN TEST] Local IP: ");
+            Serial.println(ETH.localIP());
+            Serial.print("[LAN TEST] Subnet Mask: ");
+            Serial.println(ETH.subnetMask());
+            Serial.print("[LAN TEST] Gateway: ");
+            Serial.println(ETH.gatewayIP());
+            lanConnected = true;
+            lanSuccessCount++;
+        }
+        else
+        {
+            Serial.println("[LAN TEST] ETH IP Status: INVALID");
+            lanFailCount++;
+        }
     }
     else
     {
-      Serial.println("[LAN TEST] Physical Link: DOWN");
-      Serial.println("[LAN TEST] Check Ethernet cable connection!");
-      lanFailCount++;
-    }
-    
-    // 2. 检测 IP 地址（修正：ETH 没有 connected() 方法，用 localIP() 判断）
-    if (ETH.localIP() != IPAddress(0, 0, 0, 0))
-    {
-      Serial.println("[LAN TEST] ETH IP Status: VALID");
-      Serial.print("[LAN TEST] Local IP: ");
-      Serial.println(ETH.localIP());
-      Serial.print("[LAN TEST] Subnet Mask: ");
-      Serial.println(ETH.subnetMask());
-      Serial.print("[LAN TEST] Gateway: ");
-      Serial.println(ETH.gatewayIP());
-      Serial.print("[LAN TEST] DNS Server: ");
-      Serial.println(ETH.dnsIP());
-      lanConnected = true;
-      lanSuccessCount++;
-    }
-    else
-    {
-      Serial.println("[LAN TEST] ETH IP Status: INVALID (0.0.0.0)");
-      Serial.println("[LAN TEST] No IP address assigned via ETH");
-      lanFailCount++;
+        Serial.println("[LAN TEST] Physical Link: DOWN");
+        Serial.println("[LAN TEST] Check Ethernet cable connection!");
+        lanFailCount++;
     }
     
     // 3. LAN 网络连通性测试
@@ -1974,10 +2003,25 @@ void testTaskFunction(void *pvParameters)
   Serial.println("#                  TEST COMPLETED                       #");
   Serial.println("########################################################\n");
   
+
+  //打开ZIGBEE指示灯
+  Serial2.write(ZIGBEE_LED_ON, sizeof(ZIGBEE_LED_ON));      //D11亮
+  //打开wifi指示灯
+  if(wifiSuccessCount)digitalWrite(LED_PWR, 1);             //D9亮
+  //打开LAN指示灯
+  if(lanSuccessCount)digitalWrite(LED_USB, 0);              //D12亮 
+
   // 测试完成后进入空闲循环
   while (1)
   {
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    if(!digitalRead(BTN))
+    {
+      digitalWrite(LED_USB, 1);
+      vTaskDelay(500 / portTICK_PERIOD_MS);
+      digitalWrite(LED_USB, 0);
+      vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+    vTaskDelay(20 / portTICK_PERIOD_MS);
   }
 }
 
@@ -1985,37 +2029,52 @@ void factory_test(void)
 {
   // 扫描 WiFi 热点
   Serial.println("[FACTORY] Scanning WiFi networks...");
+
   WiFi.mode(WIFI_STA);
-  int n = WiFi.scanNetworks();
-  Serial.print("[FACTORY] Networks found: ");
+  int n = WiFi.scanNetworks();  
+  if (n < 0)
+  {
+      Serial.println("[FACTORY] WiFi scan FAILED!");
+      Serial.print("[FACTORY] Error code: ");
+      Serial.println(n);
+      return;
+  }
+  else if (n == 0)
+  {
+      Serial.println("[FACTORY] No AP found");
+      WiFi.scanDelete();
+      return;
+  }
+    
+  Serial.print("[FACTORY] Total APs found: ");
   Serial.println(n);
 
   bool foundTestAP = false;
-  int32_t testAP_RSSI = 0;  // 存储测试 AP 的 RSSI 值
-  
+  int32_t testAP_RSSI = -100;
+    
+    // ✅ 手动过滤 SSID
   for (int i = 0; i < n; i++)
   {
-    String ssid = WiFi.SSID(i);
-    int32_t rssi = WiFi.RSSI(i);
-    
-    Serial.print("[FACTORY] SSID[");
-    Serial.print(i);
-    Serial.print("]: ");
-    Serial.print(ssid);
-    Serial.print(" | RSSI: ");
-    Serial.print(rssi);
-    Serial.println(" dBm");
-    
-    if (ssid == "ez_factory_test")
-    {
-      foundTestAP = true;
-      testAP_RSSI = rssi;  // 保存 RSSI 值
-      Serial.println("[FACTORY] >>> Found 'ez_factory_test' AP!");
-      Serial.print("[FACTORY] >>> RSSI: ");
-      Serial.print(testAP_RSSI);
+      String ssid = WiFi.SSID(i);
+      int32_t rssi = WiFi.RSSI(i);
+      
+      Serial.print("[FACTORY] SSID[");
+      Serial.print(i);
+      Serial.print("]: ");
+      Serial.print(ssid);
+      Serial.print(" | RSSI: ");
+      Serial.print(rssi);
       Serial.println(" dBm");
-      break;
-    }
+      
+      if (ssid == "ezsmart_rd")
+      {
+          foundTestAP = true;
+          if (rssi > testAP_RSSI)
+          {
+              testAP_RSSI = rssi;  // 选择信号最好的
+          }
+          Serial.println("[FACTORY] >>> Found target AP!");
+      }
   }
 
   // 释放扫描结果内存

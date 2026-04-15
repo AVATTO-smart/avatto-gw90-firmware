@@ -68,13 +68,11 @@ extern CCTools CCTool;
 // MDNSResponder MDNS; don't need?
 
 
-
-
 const byte ZIGBEE_LED_ON[] = {0xFE, 0x02, 0x27, 0x0A, 0x01, 0x01, 0x2F};
 const byte ZIGBEE_LED_OFF[] = {0xFE, 0x02, 0x27, 0x0A, 0x01, 0x00, 0x2E};
 const byte cmdSysVersion[] = {0Xfe, 0, 0X21, 0X02, 0x23};
-
 const byte cmdGetChipId[] = {3, 0x28, 0X28};
+
 
 void factory_test(void);
 
@@ -349,7 +347,7 @@ IPAddress parse_ip_address(const char *str)
 
   return result;
 }
-
+//加载系统配置
 bool loadSystemVar()
 { // todo remove
   File configFile = LittleFS.open(configFileSystem, FILE_READ);
@@ -376,7 +374,7 @@ bool loadSystemVar()
     {
       serializeJson(doc, configFile);
     }
-    return false;
+    return true;
   }
 
   DynamicJsonDocument doc(1024);
@@ -402,10 +400,10 @@ bool loadSystemVar()
   configFile.close();
   return true;
 }
-
+//加载wifi配置
 bool loadConfigWifi()
 {
-  File configFile = LittleFS.open(configFileWifi, FILE_READ);
+ // File configFile = LittleFS.open(configFileWifi, FILE_READ);
   const char *enableWiFi = "enableWiFi";
   const char *ssid = "ssid";
   const char *pass = "pass";
@@ -413,7 +411,7 @@ bool loadConfigWifi()
   const char *ip = "ip";
   const char *mask = "mask";
   const char *gw = "gw";
-  if (!configFile)
+  if (!LittleFS.exists(configFileWifi))
   {
     // String StringConfig = "{\"enableWiFi\":0,\"ssid\":\"\",\"pass\":\"\",\"dhcpWiFi\":1,\"ip\":\"\",\"mask\":\"\",\"gw\":\"\",\"disableEmerg\":1}";
     DynamicJsonDocument doc(1024);
@@ -426,8 +424,7 @@ bool loadConfigWifi()
     doc[gw] = "";
     writeDefaultConfig(configFileWifi, doc);
   }
-
-  configFile = LittleFS.open(configFileWifi, FILE_READ);
+  File configFile = LittleFS.open(configFileWifi, FILE_READ);
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, configFile);
 
@@ -453,15 +450,15 @@ bool loadConfigWifi()
   configFile.close();
   return true;
 }
-
+//加载ethernet配置
 bool loadConfigEther()
 {
   const char *dhcp = "dhcp";
   const char *ip = "ip";
   const char *mask = "mask";
   const char *gw = "gw";
-  File configFile = LittleFS.open(configFileEther, FILE_READ);
-  if (!configFile)
+  //File configFile = LittleFS.open(configFileEther, FILE_READ);
+  if (!LittleFS.exists(configFileEther))
   {
     DynamicJsonDocument doc(1024);
     doc[dhcp] = 1;
@@ -473,7 +470,7 @@ bool loadConfigEther()
     writeDefaultConfig(configFileEther, doc);
   }
 
-  configFile = LittleFS.open(configFileEther, FILE_READ);
+  File configFile = LittleFS.open(configFileEther, FILE_READ);
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, configFile);
 
@@ -496,7 +493,7 @@ bool loadConfigEther()
   configFile.close();
   return true;
 }
-
+//加载通用配置
 bool loadConfigGeneral()
 {
   const char *hostname = "hostname";
@@ -507,9 +504,9 @@ bool loadConfigGeneral()
   const char *prevCoordMode = "prevCoordMode";
   const char *keepWeb = "keepWeb";
   const char *timeZoneName = "timeZoneName";
-  File configFile = LittleFS.open(configFileGeneral, FILE_READ);
-  DEBUG_PRINTLN(configFile.readString());
-  if (!configFile)
+ // File configFile = LittleFS.open(configFileGeneral, FILE_READ);
+ // DEBUG_PRINTLN(configFile.readString());
+  if (!LittleFS.exists(configFileGeneral))
   {
     // String deviceID = deviceModel;
     // getDeviceID(deviceID);
@@ -527,7 +524,9 @@ bool loadConfigGeneral()
     writeDefaultConfig(configFileGeneral, doc);
   }
 
-  configFile = LittleFS.open(configFileGeneral, FILE_READ);
+  File configFile = LittleFS.open(configFileGeneral, FILE_READ);
+  DEBUG_PRINTLN(configFile.readString());
+  configFile.seek(0, SeekSet);
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, configFile);
 
@@ -569,7 +568,7 @@ bool loadConfigGeneral()
   DEBUG_PRINTLN(F("[loadConfigGeneral] config load done"));
   return true;
 }
-
+//加载安全配置
 bool loadConfigSecurity()
 {
   const char *disableWeb = "disableWeb";
@@ -578,8 +577,8 @@ bool loadConfigSecurity()
   const char *webPass = "webPass";
   const char *fwEnabled = "fwEnabled";
   const char *fwIp = "fwIp";
-  File configFile = LittleFS.open(configFileSecurity, FILE_READ);
-  if (!configFile)
+  //File configFile = LittleFS.open(configFileSecurity, FILE_READ);
+  if (!LittleFS.exists(configFileSecurity))
   {
     // String StringConfig = "{\"disableWeb\":0,\"webAuth\":0,\"webUser\":"",\"webPass\":""}";
     DynamicJsonDocument doc(1024);
@@ -592,7 +591,7 @@ bool loadConfigSecurity()
     writeDefaultConfig(configFileSecurity, doc);
   }
 
-  configFile = LittleFS.open(configFileSecurity, FILE_READ);
+  File configFile = LittleFS.open(configFileSecurity, FILE_READ);
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, configFile);
 
@@ -621,8 +620,8 @@ bool loadConfigSerial()
 {
   const char *baud = "baud";
   const char *port = "port";
-  File configFile = LittleFS.open(configFileSerial, FILE_READ);
-  if (!configFile)
+  //File configFile = LittleFS.open(configFileSerial, FILE_READ);
+  if (!LittleFS.exists(configFileSerial))
   {
     // String StringConfig = "{\"baud\":115200,\"port\":6638}";
     DynamicJsonDocument doc(1024);
@@ -631,7 +630,7 @@ bool loadConfigSerial()
     writeDefaultConfig(configFileSerial, doc);
   }
 
-  configFile = LittleFS.open(configFileSerial, FILE_READ);
+  File configFile = LittleFS.open(configFileSerial, FILE_READ);
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, configFile);
 
@@ -654,7 +653,7 @@ bool loadConfigSerial()
   configFile.close();
   return true;
 }
-
+//加载mqtt配置
 bool loadConfigMqtt()
 {
   const char *enable = "enable";
@@ -666,8 +665,8 @@ bool loadConfigMqtt()
   const char *interval = "interval";
   const char *discovery = "discovery";
 
-  File configFile = LittleFS.open(configFileMqtt, FILE_READ);
-  if (!configFile)
+  //File configFile = LittleFS.open(configFileMqtt, FILE_READ);
+  if (!LittleFS.exists(configFileMqtt))
   {
     char deviceIdArr[20];
     getDeviceID(deviceIdArr);
@@ -684,7 +683,7 @@ bool loadConfigMqtt()
     writeDefaultConfig(configFileMqtt, doc);
   }
 
-  configFile = LittleFS.open(configFileMqtt, FILE_READ);
+  File configFile = LittleFS.open(configFileMqtt, FILE_READ);
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, configFile);
 
@@ -710,7 +709,7 @@ bool loadConfigMqtt()
   configFile.close();
   return true;
 }
-
+//加载wg配置
 bool loadConfigWg()
 {
   const char *enable = "enable";
@@ -720,8 +719,8 @@ bool loadConfigWg()
   const char *endPubKey = "endPubKey";
   const char *endPort = "endPort";
 
-  File configFile = LittleFS.open(configFileWg, FILE_READ);
-  if (!configFile)
+  //File configFile = LittleFS.open(configFileWg, FILE_READ);
+  if (!LittleFS.exists(configFileWg))
   {
     DynamicJsonDocument doc(1024);
     doc[enable] = 0;
@@ -733,7 +732,7 @@ bool loadConfigWg()
     writeDefaultConfig(configFileWg, doc);
   }
 
-  configFile = LittleFS.open(configFileWg, FILE_READ);
+  File configFile = LittleFS.open(configFileWg, FILE_READ);
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, configFile);
 
@@ -759,7 +758,7 @@ bool loadConfigWg()
   configFile.close();
   return true;
 }
-
+//打开关闭AP
 void startAP(const bool start)
 {
   Serial.print("[startAP] Called with start=");
@@ -771,7 +770,7 @@ void startAP(const bool start)
     {
       if (ConfigSettings.coordinator_mode != COORDINATOR_MODE_WIFI)
       {
-        WiFi.softAPdisconnect(true); // off wifi
+        WiFi.softAPdisconnect(true);    // off wifi
       }
       else
       {
@@ -1207,7 +1206,10 @@ void setup()
   // zig connection & leds testing
   Serial2.begin(115200, SERIAL_8N1, CC2652P_RXD, CC2652P_TXD); // start zigbee serial
   zbInit();
-  factory_test();
+  if(digitalRead(BTN))
+  {
+    factory_test();
+  }
   //-----------------
   attachInterrupt(digitalPinToInterrupt(BTN), btnInterrupt, FALLING);
 
@@ -1651,8 +1653,8 @@ void testTaskFunction(void *pvParameters)
   // ========== 连接 WiFi AP ==========
   Serial.println("\n[TEST TASK] ========== Connecting to WiFi AP ==========");
   
-  const char* testSSID = "ezsmart_rd";
-  const char* testPASS = "ezsmart@2022";  // 如果 AP 有密码，在这里设置
+  const char* testSSID = "ezsmart_factory_test";
+  const char* testPASS = "ezsmart@2026";  // 如果 AP 有密码，在这里设置
   //关指示灯
   digitalWrite(LED_PWR, 0);
   digitalWrite(LED_USB, 1);
@@ -2066,7 +2068,7 @@ void factory_test(void)
       Serial.print(rssi);
       Serial.println(" dBm");
       
-      if (ssid == "ezsmart_rd")
+      if (ssid == "ezsmart_factory_test")
       {
           foundTestAP = true;
           if (rssi > testAP_RSSI)

@@ -10,12 +10,15 @@
 #include <WiFi.h>
 #include <Ticker.h>
 
+#include <esp_task_wdt.h>
+
 #include "config.h"
 #include "web.h"
 #include "log.h"
 #include "etc.h"
 #include "zb.h"
 #include "zones.h"
+#include "version.h"
 
 #include "webh/PAGE_WG.html.gz.h"
 #include "webh/PAGE_MQTT.html.gz.h"
@@ -114,6 +117,9 @@ extern const char *configFileGeneral;
 extern const char *configFileSecurity;
 extern const char *configFileSerial;
 extern const char *deviceModel;
+
+
+
 const char *contTypeTextHtml = "text/html";
 const char *contTypeTextJs = "text/javascript";
 const char *contTypeTextCss = "text/css";
@@ -147,7 +153,7 @@ enum API_PAGE_t : uint8_t
 
 WebServer serverWeb(80);
 
-// HTTPClient clientWeb;
+//HTTPClient clientWeb;
 WiFiClient eventsClient;
 
 void webServerHandleClient()
@@ -159,8 +165,20 @@ void checkFwHexTask(void *param)
 {
     const char *tempFile = static_cast<const char *>(param);
     Serial.println("\n[ZB_FW_TASK] Starting firmware validation task...");
-    checkFwHex(tempFile);
-    Serial.println("[ZB_FW_TASK] Firmware validation task completed");
+    
+    // ← 发送验证开始事件
+    sendEvent("ZB_FW_info", sizeof("ZB_FW_info"), "Validating firmware...");
+
+    // ← 喂看门狗
+    esp_task_wdt_reset();  
+    
+    if (0 == checkFwHex(tempFile)) {
+        sendEvent("ZB_FW_info", sizeof("ZB_FW_info"), "Update done!");
+    } else {
+        sendEvent("ZB_FW_err", sizeof("ZB_FW_err"), "Update failed!");
+    }
+
+    Serial.println("[ZB_FW_TASK] Firmware update task completed");
 
     vTaskDelete(NULL);
 }
@@ -363,13 +381,16 @@ void initWebServer()
                     // DEBUG_PRINTLN("");
                     // DEBUG_PRINTLN("Update Success: " + upload.totalSize);
                     DEBUG_PRINTLN("Update success. Rebooting...");
+                    serverWeb.send(HTTP_CODE_OK, contTypeText, "OK");
+                    delay(2000);
                     ESP.restart();
-                    // serverWeb.send(HTTP_CODE_OK, contTypeText, (Update.hasError()) ? "FAIL" : "OK");
+                    
                 }
                 else
                 {
                     DEBUG_PRINTLN("Update error: ");
                     Update.printError(Serial);
+                    serverWeb.send(HTTP_CODE_OK, contTypeText, "FAIL");
                 }
             }
         });
@@ -441,6 +462,7 @@ void initWebServer()
             else if (upload.status == UPLOAD_FILE_END)
             {
                 // DEBUG_PRINTLN(F("Finish!"));
+                serverWeb.send(HTTP_CODE_OK, contTypeText, "OK");
                 delay(500);
                 fwFile.close();
                 delay(500);
@@ -526,6 +548,29 @@ void hex2bin(uint8_t *out, const char *in)
     }
 }
 
+
+String urlDecode(String input) {
+    String decoded = "";
+    char temp[] = "0x00";
+    unsigned int len = input.length();
+    unsigned int i = 0;
+    while (i < len) {
+        char decodedChar;
+        char encodedChar = input.charAt(i++);
+        if ((encodedChar == '%') && (i + 1 < len)) {
+            temp[2] = input.charAt(i++);
+            temp[3] = input.charAt(i++);
+            decodedChar = strtol(temp, NULL, 16);
+        } else if (encodedChar == '+') {
+            decodedChar = ' ';
+        } else {
+            decodedChar = encodedChar;
+        }
+        decoded += decodedChar;
+    }
+    return decoded;
+}
+
 void handleApi()
 { // http://192.168.0.116/api?action=0&page=0
     enum API_ACTION_t : uint8_t
@@ -578,67 +623,191 @@ void handleApi()
         case API_FLASH_ZB:
         {
             Serial.println("\n\n========== api_update zigbee =========");   
-            // ConfigSettings.zbFlashing = 1;
-            // const char *fwurlArg = "fwurl";
-            // const uint8_t eventLen = 11;
-            // const char *tagZB_FW_info = "ZB_FW_info";
-            // const char *tagZB_FW_err = "ZB_FW_err";
-            // const char *tagZB_FW_progress = "ZB_FW_prgs";
-            // if (serverWeb.hasArg(fwurlArg))
-            // {
-            //     String fwUrl = serverWeb.arg(fwurlArg);
-            //     serverWeb.send(HTTP_CODE_OK, contTypeText, ok);
-            //     uint8_t evWaitCount = 0;
-            //     while (!eventsClient.connected() && evWaitCount < 200)
-            //     { // wait for events
-            //         webServerHandleClient();
-            //         delay(25);
-            //         evWaitCount++;
-            //     }
-            //     // sendEvent(tag, eventLen, String("FW Url: ") + fwUrl);
-            //     // setClock();
-            //     HTTPClient https;
-            //     WiFiClientSecure client;
-            //     client.setInsecure();
-            //     https.begin(client, fwUrl); // https://raw.githubusercontent.com/Tarik2142/devHost/main/coordinator_20211217.bin
-            //     https.addHeader("Content-Type", "application/octet-stream");
-            //     const int16_t httpsCode = https.GET();
-            //     // sendEvent(tag, eventLen, String("REQ result: ") + httpsCode);
-            //     if (httpsCode == HTTP_CODE_OK)
-            //     {
-            //         const uint32_t fwSize = https.getSize();
-            //         DEBUG_PRINTLN(F("[start] Downloading firmware..."));
-            //         sendEvent(tagZB_FW_info, eventLen, "[start]");
-            //         sendEvent(tagZB_FW_info, eventLen, "Downloading firmware...");
-            //         const char *tempFile2 = "/config/coordinator.bin";
-            //         LittleFS.remove(tempFile2);
-            //         File fwFile = LittleFS.open(tempFile2, "w", 1);
-            //         uint8_t buff[4];
-            //         uint32_t downloaded = 0;
-            //         while (client.readBytes(buff, sizeof(buff)))
-            //         {
-            //             downloaded += fwFile.write(buff, sizeof(buff));
-            //             if (!(downloaded % 8192))
-            //             {
-            //                 const uint8_t d = ((float)downloaded / fwSize) * 100;
-            //                 sendEvent(tagZB_FW_progress, eventLen, String(d));
-            //             }
-            //         }
-            //         fwFile.close();
-            //         // in development
-            //     }
-            //     else
-            //     {
-            //         DEBUG_PRINTLN("REQ error: http_code " + String(httpsCode));
-            //         serverWeb.send(HTTP_CODE_BAD_REQUEST, contTypeText, String(httpsCode));
-            //         sendEvent(tagZB_FW_err, eventLen, "REQ error: http_code " + String(httpsCode));
-            //     }
-            // }
-            // else
-            // {
-            //     serverWeb.send(HTTP_CODE_BAD_REQUEST, contTypeText, "missing arg 1");
-            // }
-            // ConfigSettings.zbFlashing = 0;
+            ConfigSettings.zbFlashing = 1;
+            const char *fwurlArg = "fwurl";
+            const char *tagZB_FW_info = "ZB_FW_info";
+            const char *tagZB_FW_err = "ZB_FW_err";
+            const char *tagZB_FW_download = "ZB_FW_downloading";  // 下载阶段
+            const char *tagZB_FW_flash = "ZB_FW_flashing";        // 烧录阶段
+            
+            if (serverWeb.hasArg(fwurlArg))
+            {
+                String fwUrl = serverWeb.arg(fwurlArg);
+                fwUrl = urlDecode(fwUrl);
+                
+                Serial.print("🔗 Firmware URL: ");
+                Serial.println(fwUrl);
+                
+                bool wifiConnected = (WiFi.status() == WL_CONNECTED);
+                bool ethConnected = ETH.linkUp();
+                
+                if (!wifiConnected && !ethConnected) {
+                    Serial.println("❌ No network connection!");
+                    serverWeb.send(HTTP_CODE_SERVICE_UNAVAILABLE, contTypeText, "No network connection");
+                    sendEvent(tagZB_FW_err, sizeof(tagZB_FW_err), "No network connection!");
+                    ConfigSettings.zbFlashing = 0;
+                    break;
+                }
+                
+                serverWeb.send(HTTP_CODE_OK, contTypeText, ok);
+                
+                uint8_t evWaitCount = 0;
+                while (!eventsClient.connected() && evWaitCount < 20)
+                {
+                    webServerHandleClient();
+                    delay(50);
+                    evWaitCount++;
+                }
+                
+                if (!eventsClient.connected()) {
+                    Serial.println("⚠️ Events client not ready, using polling mode");
+                }
+                
+                HTTPClient http;
+                WiFiClientSecure client;
+                client.setInsecure();
+                client.setTimeout(10000);
+                
+                http.begin(client, fwUrl);
+                http.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                http.addHeader("Accept", "*/*");
+                http.addHeader("Accept-Encoding", "identity");
+                http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+                http.setTimeout(60000);
+                
+                Serial.println("📡 Connecting to firmware server...");
+                const int16_t httpCode = http.GET();
+
+                Serial.println("=== HTTP Response Headers ===");
+                int headerCount = http.headers();
+                for (int i = 0; i < headerCount; i++) {
+                    Serial.print(http.headerName(i));
+                    Serial.print(": ");
+                    Serial.println(http.header(i));
+                }
+                Serial.println("===========================");
+                
+                Serial.print("📊 HTTP Response Code: ");
+                Serial.println(httpCode);
+                
+                int32_t fwSize = http.getSize();
+                Serial.print("📄 Content-Length: ");
+                Serial.println(fwSize > 0 ? String(fwSize) + " bytes" : "Not provided");
+                
+                if (httpCode != HTTP_CODE_OK)
+                {
+                    Serial.print("❌ HTTP Error: ");
+                    Serial.println(httpCode);
+                    sendEvent(tagZB_FW_err, sizeof(tagZB_FW_err), "HTTP Error: " + String(httpCode));
+                    http.end();
+                    ConfigSettings.zbFlashing = 0;
+                    break;
+                }
+                
+                Serial.println("✅ Connection successful!");
+                
+                LittleFS.remove(tempFile);
+                
+                File fwFile = LittleFS.open(tempFile, "w");
+                if (!fwFile)
+                {
+                    sendEvent(tagZB_FW_err, sizeof(tagZB_FW_err), "Failed to open file for writing");
+                    ConfigSettings.zbFlashing = 0;
+                    http.end();
+                    break;
+                }
+                sendEvent(tagZB_FW_info, sizeof(tagZB_FW_info), "[start]");
+                sendEvent(tagZB_FW_info, sizeof(tagZB_FW_info), "Downloading firmware...");
+
+                WiFiClient *stream = http.getStreamPtr();
+                uint8_t buff[1024];
+                uint32_t downloaded = 0;
+                unsigned long startTime = millis();
+                unsigned long lastProgressTime = 0;
+                int noDataCount = 0;
+                uint8_t percent = 0;
+
+                while (http.connected() || stream->available())
+                {
+                    size_t available = stream->available();
+                    
+                    if(downloaded >= fwSize)break;
+
+                    if (available > 0)
+                    {
+                        size_t toRead = available;
+                        if (toRead > sizeof(buff)) {
+                            toRead = sizeof(buff);
+                        }
+                        
+                        int bytesRead = stream->read(buff, toRead);
+                        
+                        if (bytesRead > 0)
+                        {
+                            fwFile.write(buff, bytesRead);
+                            downloaded += bytesRead;
+                            
+                            // 进度更新
+                            unsigned long now = millis();
+                            if ((now - lastProgressTime > 500) || (downloaded % 10240 == 0)) {
+                                percent = ((float)downloaded / fwSize) * 100;
+                                sendEvent(tagZB_FW_download, sizeof(tagZB_FW_download), String(percent));  
+                                lastProgressTime = now;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        
+                        if (millis() - startTime > 200000) {
+                            Serial.println("⏰ Download timeout!");
+                            sendEvent(tagZB_FW_err, sizeof(tagZB_FW_err), "Download timeout!");
+                            fwFile.close();
+                            ConfigSettings.zbFlashing = 0;
+                            http.end();
+                            return;
+                        }
+                        
+                        delay(10);
+                    }
+                    
+                    static uint16_t loopCount = 0;
+                    if (++loopCount % 10 == 0) {
+                        webServerHandleClient();
+                    }
+                }
+                fwFile.close();
+                http.end();
+                
+                if(fwSize == downloaded)
+                {
+                    percent = ((float)downloaded / fwSize) * 100;
+                    sendEvent(tagZB_FW_download, sizeof(tagZB_FW_download), String(percent));
+                    
+                    unsigned long duration = millis() - startTime;
+                    Serial.print("✅ Download complete in ");
+                    Serial.print(duration);
+                    Serial.println(" ms");
+                    Serial.print("📦 Total bytes: ");
+                    Serial.println(downloaded);
+                    
+                    sendEvent(tagZB_FW_info, sizeof(tagZB_FW_info), "Download complete!");
+                    sendEvent(tagZB_FW_info, sizeof(tagZB_FW_info), String("Total size: ") + String(downloaded) + " bytes");
+                    sendEvent(tagZB_FW_info, sizeof(tagZB_FW_info), "Validating and flashing...");
+
+                    xTaskCreate(checkFwHexTask, "CheckFWHex", 8192, (void *)tempFile, 3, NULL);
+                    // for (int i = 0; i < 20; i++) {
+                    //     webServerHandleClient();
+                    //     delay(100);
+                    // }
+                    // sendEvent(tagZB_FW_info, sizeof(tagZB_FW_info), "Update done!");
+                }
+            }
+            else
+            {
+                serverWeb.send(HTTP_CODE_BAD_REQUEST, contTypeText, "missing arg 1");
+            }
+            ConfigSettings.zbFlashing = 0;
         }
         break;
         case API_GET_LOG:
@@ -791,19 +960,6 @@ void handleApi()
                 {
                     resp = (String)ConfigSettings.refreshLogs;
                 }
-                else if (serverWeb.arg(param) == "zbFlashStatus")
-                {
-                    // ← 新增：返回烧录进度百分比（纯数字字符串）
-                    extern volatile size_t zbFlashTotalSent;
-                    extern volatile size_t zbFlashTotalSize;
-                    
-                    if (zbFlashTotalSize > 0) {
-                        float percent = ((float)zbFlashTotalSent / zbFlashTotalSize) * 100.0;
-                        resp = String(percent);
-                    } else {
-                        resp = "0";
-                    }
-                }
                 else if (serverWeb.arg(param) == "coordMode")
                 {
                     if (wifiWebSetupInProgress)
@@ -919,7 +1075,7 @@ void handleApi()
                 sendGzip(contTypeTextHtml, PAGE_SYSTOOLS_html_gz, PAGE_SYSTOOLS_html_gz_len);
                 break;
             case API_PAGE_ABOUT:
-                // handleAbout();
+                handleAbout();
                 sendGzip(contTypeTextHtml, PAGE_ABOUT_html_gz, PAGE_ABOUT_html_gz_len);
                 break;
             case API_PAGE_MQTT:
@@ -1777,6 +1933,35 @@ void handleSysTools()
 
     serializeJson(zones, results);
     serverWeb.sendHeader(respTimeZonesName, results);
+}
+
+void handleAbout()
+{
+    String result;
+    DynamicJsonDocument doc(512);
+
+    // 从 version.h 获取版本和构建日期
+    // 假设 VERSION 和 BUILD_DATE 是在 version.h 中定义的宏
+    doc["firmwareVersion"] = String(VERSION);
+    String buildTimestamp = String(BUILD_TIMESTAMP);
+    String buildDate = "Unknown";
+
+    // 查找第一个空格的位置，以分离日期和时间
+    int spaceIndex = buildTimestamp.indexOf(' ');
+    if (spaceIndex != -1) {
+        // 提取日期部分 "YYYY-MM-DD"
+        String datePart = buildTimestamp.substring(0, spaceIndex);
+        
+        // 将 "-" 替换为 "/"
+        datePart.replace('-', '/');
+        
+        buildDate = datePart;
+    }
+
+    doc["buildDate"] = buildDate;
+
+    serializeJson(doc, result);
+    serverWeb.sendHeader(respHeaderName, result);
 }
 
 void handleSavefile()

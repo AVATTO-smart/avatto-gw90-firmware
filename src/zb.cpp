@@ -55,6 +55,9 @@ void clearS2Buffer()
     }
 }
 
+
+//协议版本   产品ID       版本        20250321
+//  02        01      02 07 01     D1 FE 34 01   00     74(校验)
 void getZbVer()
 {
     zbVer.zbRev = 0;
@@ -63,6 +66,8 @@ void getZbVer()
     const byte cmd1 = 0x21;
     const byte cmd2 = 0x02;
     const byte cmdSysVersion[] = {cmdFrameStart, zero, cmd1, cmd2, 0x23};
+
+
     for (uint8_t i = 0; i < 6; i++)
     {
         if (Serial2.read() != cmdFrameStart || Serial2.read() != 0x0a || Serial2.read() != 0x61 || Serial2.read() != cmd2)
@@ -86,6 +91,8 @@ void getZbVer()
             zbVer.majorrel = zbVerBuf[2];
             zbVer.product = zbVerBuf[1];
             zbVer.transportrev = zbVerBuf[0];
+
+            Serial.write(zbVerBuf,zbVerLen);
             printLogMsg(String("[ZBVER]") + " Rev: " + zbVer.zbRev + " Maintrel: " + zbVer.maintrel + " Minorrel: " + zbVer.minorrel + " Majorrel: " + zbVer.majorrel + " Transportrev: " + zbVer.transportrev + " Product: " + zbVer.product);
             clearS2Buffer();
             break;
@@ -230,21 +237,16 @@ void parseCallback(uint32_t address, uint8_t len, uint8_t *data, size_t currentP
     }
     DEBUG_PRINTLN(""); */
 
-    if (currentPosition - lastSize > 12500)
-    {
-        lastSize = currentPosition;
-        const char *tagZB_FW_progress = "ZB_FW_prgs";
-        const uint8_t eventLen = 11;
-
-        float percent = ((float)currentPosition / _totalSize) * 100.0;
-
-        sendEvent(tagZB_FW_progress, eventLen, String(percent));
-        DEBUG_PRINTLN(String(tagZB_FW_progress) + String(" | ") + String(percent) + String("%"));
-    }
-    //sendEvent(tagESP_FW_progress, eventLen, String(percent));
+    // if (currentPosition - lastSize > 12500)
+    // {
+    //     lastSize = currentPosition;
+    //     float percent = ((float)currentPosition / _totalSize) * 100.0;
+    //     sendEvent("ZB_FW_prgs", sizeof("ZB_FW_prgs"), String(percent));
+    //     DEBUG_PRINTLN(String("ZB_FW_prgs") + String(" | ") + String(percent) + String("%"));
+    // }
 }
 
-void runFlash(const char *hexFilePath)
+int8_t runFlash(const char *hexFilePath,uint32_t binsize)
 {
     //const char *tempFile = "/config/fw.hex";
     File fwFile = LittleFS.open(tempFile, "r");
@@ -252,27 +254,23 @@ void runFlash(const char *hexFilePath)
     {
         DEBUG_PRINTLN(F("Failed to open fw.hex file"));
         printLogMsg("[ZB_FLASH] Failed to open fw.hex file");
-        return;
+        return -1;
     }
 
     DEBUG_PRINTLN(F("Starting to send fw.hex data..."));
     printLogMsg("[ZB_FLASH] Starting to send fw.hex data...");
 
-    uint32_t totalSize =0; 
+    uint32_t zbFlashTotalSize = binsize;
+    uint32_t zbFlashTotalSent  = 0;
 
-    zbFlashStart(hexFilePath,0,&totalSize );
-
-    if (totalSize  == 0)
+    if (zbFlashTotalSize  == 0)
     {
         printLogMsg("[ZB_FLASH] Failed to get total size");
         fwFile.close();
-        return;
+        return -1;
     }
+    zbFlashStart(0,zbFlashTotalSize);
 
-    zbFlashTotalSize  = totalSize;
-    zbFlashTotalSent  = 0;
-
-    size_t totalSent = 0;
     size_t packetCount = 0;
 
     // 缓冲区，存储 240 字节数据
@@ -289,8 +287,9 @@ void runFlash(const char *hexFilePath)
 
     // 进度跟踪变量
     size_t lastProgressSize = 0;
-    const size_t progressInterval = 12500;  // 每 12500 字节上报一次进度
+    const size_t progressInterval = zbFlashTotalSize / 100;  // 每 12500 字节上报一次进度
 
+    Serial.printf("fw flash size: %ld\n",zbFlashTotalSize);
     while (fwFile.available())
     {
         String line = fwFile.readStringUntil('\n');
@@ -307,32 +306,27 @@ void runFlash(const char *hexFilePath)
             
             // 解析记录类型
             uint8_t recordType = strtol(line.substring(7, 9).c_str(), nullptr, 16);
-            
             // 处理扩展线性地址记录 (0x04)
             if (recordType == 0x04)
             {
                 extendedAddr = strtol(line.substring(9, 13).c_str(), nullptr, 16) << 16;
                 continue;
             }
-            
             // 处理扩展段地址记录 (0x02)
             if (recordType == 0x02)
             {
                 extendedAddr = strtol(line.substring(9, 13).c_str(), nullptr, 16) << 4;
                 continue;
             }
-            
             // 只处理数据记录（类型 00）
             if (recordType != 0x00)
             {
                 continue;
             }
-            
             // 解析当前行的地址和数据长度
             uint16_t lineAddr = strtol(line.substring(3, 7).c_str(), nullptr, 16);
             uint8_t lineDataLen = strtol(line.substring(1, 3).c_str(), nullptr, 16);
             uint32_t fullAddr = extendedAddr + lineAddr;
-            
             // 第一条记录初始化
             if (firstRecord)
             {
@@ -341,7 +335,6 @@ void runFlash(const char *hexFilePath)
                 firstRecord = false;
                 DEBUG_PRINTLN(String("[HEX] Start address: 0x") + String(fullAddr, HEX));
             }
-            
             // 检查地址是否连续，如果不连续需要填充空白
             if (fullAddr != nextExpectAddr)
             {
@@ -352,7 +345,6 @@ void runFlash(const char *hexFilePath)
                 DEBUG_PRINT(" -> 0x" + String(fullAddr, HEX));
                 DEBUG_PRINTLN(" (" + String(gapSize) + " bytes)");
                 
-                // 【修复】循环填充并发送所有间隙数据，直到 gapSize 为 0
                 while (gapSize > 0)
                 {
                     // 计算本次可以填充的数量（缓冲区剩余空间）
@@ -361,7 +353,6 @@ void runFlash(const char *hexFilePath)
                     {
                         fillSize = 240 - totalBytes;
                     }
-                    
                     // 填充 0xFF
                     for (uint32_t i = 0; i < fillSize; i++)
                     {
@@ -375,7 +366,7 @@ void runFlash(const char *hexFilePath)
                     if (totalBytes >= 240)
                     {
                         packetCount++;
-                        totalSent += totalBytes;
+                        zbFlashTotalSent += totalBytes;
                         
                         DEBUG_PRINT("Packet #");
                         DEBUG_PRINT(packetCount);
@@ -396,8 +387,13 @@ void runFlash(const char *hexFilePath)
                         totalBytes = 0;
                         lineCount = 0;
                         currentWriteAddr = nextExpectAddr;
-
-                        zbFlashTotalSent = totalSent;
+                        
+                        if (zbFlashTotalSent - lastProgressSize >= progressInterval)
+                        {
+                            uint8_t percent = ((float)zbFlashTotalSent / zbFlashTotalSize) * 100;
+                            sendEvent("ZB_FW_flashing", sizeof("ZB_FW_flashing"), String(percent));
+                            lastProgressSize = zbFlashTotalSent;
+                        }
                     }
                 }
             }
@@ -407,7 +403,7 @@ void runFlash(const char *hexFilePath)
             {
                 // 缓冲区满了，先发送当前数据
                 packetCount++;
-                totalSent += totalBytes;
+                zbFlashTotalSent += totalBytes;
                 
                 DEBUG_PRINT("Packet #");
                 DEBUG_PRINT(packetCount);
@@ -434,8 +430,13 @@ void runFlash(const char *hexFilePath)
                 currentWriteAddr = fullAddr;
                 nextExpectAddr = fullAddr;
                 
-                // 【新增】上报进度
-                zbFlashTotalSent = totalSent;
+
+                if (zbFlashTotalSent - lastProgressSize >= progressInterval)
+                {
+                    uint8_t percent = ((float)zbFlashTotalSent / zbFlashTotalSize) * 100;
+                    sendEvent("ZB_FW_flashing", sizeof("ZB_FW_flashing"), String(percent));
+                    lastProgressSize = zbFlashTotalSent;
+                }
             }
             
             // 解析当前行数据并写入缓冲区
@@ -457,7 +458,7 @@ void runFlash(const char *hexFilePath)
     if (totalBytes > 0)
     {
         packetCount++;
-        totalSent += totalBytes;
+        zbFlashTotalSent += totalBytes;
         
         DEBUG_PRINT("Packet #");
         DEBUG_PRINT(packetCount);
@@ -479,6 +480,9 @@ void runFlash(const char *hexFilePath)
 
         // 【新增】上报最后进度
         zbFlashTotalSent = zbFlashTotalSize;
+
+        // ← 添加：发送烧录完成事件
+        sendEvent("ZB_FW_flashing", sizeof("ZB_FW_flashing"), "100");
     }
     i=0;              
     while(!zbCheckLastCmd())
@@ -491,16 +495,18 @@ flash_quit:
     Serial2.updateBaudRate(ConfigSettings.serialSpeed); 
     CCTool.restart();         //重启
     DEBUG_PRINTLN(F("fw.hex data send complete"));
-    Serial.printf("total send: %ld",totalSent);
-    printLogMsg(String("[ZB_FLASH] fw.hex data send complete | Total: ") + String(totalSent) + " bytes");
+    Serial.printf("total send: %ld",zbFlashTotalSent);
+    printLogMsg(String("[ZB_FLASH] fw.hex data send complete | Total: ") + String(zbFlashTotalSent) + " bytes");
+    if(zbFlashTotalSent == zbFlashTotalSize)return 0;
+    return -1;
 }
 
-void checkFwHex(const char *tempFile) // check Zigbee FW file using IntelHEX, than check BSL pin.
+int8_t checkFwHex(const char *tempFile) // check Zigbee FW file using IntelHEX, than check BSL pin.
 {
     IntelHex zb_hex(tempFile);
 
-    // zb_hex.validateChecksum();
-    // zb_hex.checkBSLConfiguration();
+    size_t free_heap = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    Serial.printf("[ZB_FLASH] Free heap before verify: %u bytes\n", (unsigned int)free_heap);
 
     if (!zb_hex.parse(preParse, parseCallback, postParse))
     {
@@ -552,14 +558,18 @@ void checkFwHex(const char *tempFile) // check Zigbee FW file using IntelHEX, th
         String msg = ("Zigbee FW file INVALID - ERROR");
         DEBUG_PRINTLN(msg);
         printLogMsg(msg);
+        return -1;
     }
     else
     {
         String msg = ("Zigbee FW file VALID - OK");
         DEBUG_PRINTLN(msg);
         printLogMsg(msg);
-        runFlash(tempFile);
+        sendEvent("ZB_FW_info", sizeof("ZB_FW_info"), "Validation complete!");
+
+        return runFlash(tempFile,zb_hex.getBinSize());
     }
+    return -1;
 }
 
 void zbInit()
@@ -740,30 +750,29 @@ bool zbCheckLastCmd(void)
     return false;
  }
 
- bool zbFlashStart(const char *hexFilePath, uint32_t addr,uint32_t *flashSize)
+ bool zbFlashStart(uint32_t addr,uint32_t flashSize)
  {
     uint8_t buf[8]={0};
-    uint32_t size1 =0;
+    uint32_t size =0;
 
-    size1 = getHexBinSize(hexFilePath);
-
-    if(flashSize)*flashSize = size1;
+    size = flashSize; 
 
     buf[0] = (uint8_t)(addr >> 24) ;
     buf[1] = (uint8_t)(addr >> 16);
     buf[2] = (uint8_t)(addr >> 8);
     buf[3] = (uint8_t)(addr >> 0);
 
-    buf[4] = (uint8_t)(size1 >> 24);
-    buf[5] = (uint8_t)(size1 >> 16);
-    buf[6] = (uint8_t)(size1 >> 8);
-    buf[7] = (uint8_t)(size1 >> 0);
+    buf[4] = (uint8_t)(size >> 24);
+    buf[5] = (uint8_t)(size >> 16);
+    buf[6] = (uint8_t)(size >> 8);
+    buf[7] = (uint8_t)(size >> 0);
 
+    Serial.printf("update baud\n");
     Serial2.updateBaudRate(1000000);         //提高波特率
+    Serial.printf("erase flash\n");
+    zbEraseFlash(0,size);
 
-    zbEraseFlash(0,size1);
-
-
+    Serial.printf("send start\n");
     if(zbSendCommand(0x21,buf,8,2))
     {
         if(zbGetStatus(buf,1))
@@ -798,9 +807,9 @@ bool zbEraseFlash(uint32_t start,uint32_t size)
 }
 
 
-size_t getHexBinSize(const char *hexFilePath)
+size_t getHexBinSize(File hexFile)
 {
-    File hexFile = LittleFS.open(hexFilePath, "r");
+    //File hexFile = LittleFS.open(hexFilePath, "r");
     if (!hexFile)
     {
         DEBUG_PRINTLN(F("Failed to open hex file"));
@@ -808,7 +817,7 @@ size_t getHexBinSize(const char *hexFilePath)
         return 0;
     }
 
-   // return 360448;   //2652芯片固定bin大小
+    //return 360448;   //2652芯片固定bin大小
 
     uint32_t maxAddress = 0;
     uint32_t extendedAddr = 0;
@@ -852,7 +861,7 @@ size_t getHexBinSize(const char *hexFilePath)
         }
     }
     
-    hexFile.close();
+    //hexFile.close();
     
     DEBUG_PRINTLN(String("[HEX_SIZE] BIN size: ") + String(maxAddress) + " bytes");
     printLogMsg(String("[HEX_SIZE] ") + String(maxAddress) + " bytes");

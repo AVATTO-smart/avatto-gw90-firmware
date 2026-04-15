@@ -9,12 +9,16 @@ const spiner2 = $("<span>", {
 	"class": classHide
 });
 
-const zbFwInfoUrl = "https://raw.githubusercontent.com/smlight-dev/slzb-06-firmware/dev/ota/fw.json";
+//const zbFwInfoUrl = "https://raw.githubusercontent.com/smlight-dev/slzb-06-firmware/dev/ota/fw.json";
+
+const zbFwInfoUrl = "https://raw.githubusercontent.com/AVATTO-smart/AVATTO_GW_firmware/main/avatto_fws.json";
+//const zbFwInfoUrl = "https://192.168.2.36:8443/firmware/avatto_fws.json";      //for local test
 
 const headerText = ".modal-title";
 const headerBtnClose = ".modal-btn-close";
 const modalBody = ".modal-body";
 const modalBtns = ".modal-footer";
+
 
 const GITHUB_REPO_OWNER = "AVATTO-smart";
 const GITHUB_REPO_NAME = "avatto-gw90-firmware";
@@ -518,7 +522,6 @@ function toastConstructor(params) {
 function closeModal() {
 	$("#modal").modal("hide");
 }
-
 function rebootWait() {
 	setTimeout(function () {
 		modalConstructor("rebootWait");
@@ -539,24 +542,107 @@ function espFlashGitWait() {
 	}, 500);
 }
 
+function zbFlashGitWait() {
+	// ✅ 检查是否有固件信息
+	if (!latestZbFirmware) {
+		return;
+	}
+	console.log("Starting Zigbee update from Git... Please wait patiently!");
+	// ✅ 直接开始升级（使用轮询模式，不依赖 EventSource）
+	startZbFlashFromGit();
+}
+
+
+// ✅ 全局变量追踪
+let zbEventSource = null;
+let zbEventConnectTimeout = null;
+let originalRefreshInterval = null;
+
+function startZbFlashFromGit() {
+	console.log("🚀 Starting Zigbee flash from Git...");
+	
+	if (window.logRefreshInterval) {
+        originalRefreshInterval = window.logRefreshInterval;
+        clearInterval(window.logRefreshInterval);
+    }
+
+	closeModal();
+	
+	setTimeout(function() {
+		if ($('#fw-tab').length) {
+			var tab = new bootstrap.Tab($('#fw-tab'));
+			tab.show();
+		}
+		
+		$("#prg_zb").html("Preparing device...");
+		$("#bar_zb").css("width", "0%");
+		$("#updButton_zb").prop("disabled", true);
+		
+		// ✅ 先建立 EventSource 连接
+		ZBfwStartEvents();
+		
+		// ✅ 等待网络连接完全释放
+		setTimeout(function() {
+			// ✅ 直接使用原始固件 URL
+			let firmwareUrl = latestZbFirmware.link;
+			console.log("📦 Firmware URL:", firmwareUrl);
+			
+			// ✅ 检查 URL 是否为空
+			if (!firmwareUrl) {
+				console.error("❌ Firmware URL is empty!");
+				$("#prg_zb").html('<span style="color:red">❌ Invalid firmware link</span>');
+				$("#updButton_zb").prop("disabled", false);
+				return;
+			}
+			
+			// ✅ 直接开始烧录（使用原始 URL）
+			startFlashProcess(firmwareUrl);
+			
+		}, 2000);
+	}, 300);
+}
+
+
+
+function startFlashProcess(fwUrl) {
+    console.log("🚀 Starting flash process with URL:", fwUrl);
+    
+    $("#prg_zb").html("📥 Downloading firmware...");
+    $("#bar_zb").css("width", "5%");
+    
+    $.get(apiLink + api.actions.API_FLASH_ZB + "&fwurl=" +encodeURIComponent(fwUrl), function(data) {
+        console.log("✅ API Response:", data);
+    }).fail(function(xhr, status, error) {
+        console.error("❌ Download failed:", status, error);
+        $("#prg_zb").html('<span style="color:red">❌ Download failed: ' + error + '</span>');
+        $("#bar_zb").css("width", "0%");
+        $("#updButton_zb").prop("disabled", false);
+    });
+}
+
+let espEventSource = null;
 function ESPfwStartEvents() {
-	var source = new EventSource('/events');
+
+	if (espEventSource) {
+        espEventSource.close();
+    }
+	espEventSource = new EventSource('/events');
 	console.log("Events try");
 
-	source.addEventListener('open', function (e) {
+	espEventSource.addEventListener('open', function (e) {
 		console.log("Events Connected");
 	}, false);
 
-	source.addEventListener('error', function (e) {
+	espEventSource.addEventListener('error', function (e) {
 		if (e.target.readyState != EventSource.OPEN) {
 			console.log("Events Err");
 		}
 	}, false);
 
-	source.addEventListener('ESP_FW_prgs', function (e) {
+	espEventSource.addEventListener('ESP_FW_prgs', function (e) {
 
-		//const val = e.data + "%";
-		//console.log(val);
+		const val = e.data + "%";
+        console.log("[ESP_FW_prgs] " + val); // 加个前缀方便识别
 
 		$('#prg').html('progress: ' + Math.round(e.data) + '%');
 		$('#bar').css('width', Math.round(e.data) + '%');
@@ -579,44 +665,114 @@ function ESPfwStartEvents() {
 	}, false);
 }
 
+
 function ZBfwStartEvents() {
-	var source = new EventSource('/events');
-	console.log("Events try");
+    // 关闭旧的连接
+    if (zbEventSource) {
+        zbEventSource.close();
+        zbEventSource = null;
+    }
+    if (zbEventConnectTimeout) {
+        clearTimeout(zbEventConnectTimeout);
+        zbEventConnectTimeout = null;
+    }
+    
+    zbEventSource = new EventSource('/events');
+    console.log("Events try");
+    //15S超时
+    zbEventConnectTimeout = setTimeout(function() {
+        console.log("⏰ EventSource connection timeout");
+        $("#prg_zb").html('<span style="color:orange">⚠️ EventSource timeout</span>');
+        if (zbEventSource) {
+            zbEventSource.close();
+            zbEventSource = null;
+        }
+    }, 60000);
 
-	source.addEventListener('open', function (e) {
-		console.log("Events Connected");
-	}, false);
+    zbEventSource.addEventListener('open', function (e) {
+        console.log("Events Connected");
+        if (zbEventConnectTimeout) {
+            clearTimeout(zbEventConnectTimeout);
+            zbEventConnectTimeout = null;
+        }
+    }, false);
 
-	source.addEventListener('error', function (e) {
-		if (e.target.readyState != EventSource.OPEN) {
-			console.log("Events Err");
+    zbEventSource.addEventListener('error', function (e) {
+        console.log("Events Err");
+        if (zbEventConnectTimeout) {
+            clearTimeout(zbEventConnectTimeout);
+            zbEventConnectTimeout = null;
+        }
+        
+        if (e.target.readyState != EventSource.OPEN) {
+            console.log("EventSource connection failed, using polling mode...");
+            $("#prg_zb").html('<span style="color:orange">⚠️ Connection failed, using polling mode...</span>');
+            if (zbEventSource) {
+                zbEventSource.close();
+                zbEventSource = null;
+            }
+        }
+    }, false);
+
+    // ← 下载进度事件
+    zbEventSource.addEventListener('ZB_FW_downloading', function (e) {
+		const percentage = parseInt(e.data);
+		console.log(`📥 Downloaded: ${percentage}%`); 
+		
+		$('#prg_zb').html(`📥 Downloading... ${percentage}%`);
+		$('#bar_zb').css('width', percentage + '%');
+		
+		if (percentage >= 100) {
+			$('#prg_zb').html('⚡ Download complete, starting flash...');
+			$('#bar_zb').css('width', '100%');
 		}
 	}, false);
 
-	source.addEventListener('ZB_FW_prgs', function (e) {
-
-		const val = e.data + "%";
-		console.log(val);
-
-		$('#prg_zb').html('validate: ' + Math.round(e.data) + '%');
-		$('#bar_zb').css('width', Math.round(e.data) + '%');
-
-		if (Math.round(e.data) > 99.5) {
+    // ← 烧录进度事件
+    zbEventSource.addEventListener('ZB_FW_flashing', function (e) {
+		const percentage = Math.min(parseInt(e.data), 100);
+		console.log("⚡ Flashing progress:", percentage + "%");
+		
+		$('#prg_zb').html(`⚡ Flashing... ${percentage}%`);
+		$('#bar_zb').css('width', percentage + '%');
+		
+		if (percentage >= 100) {
 			setTimeout(function () {
-				$('#prg_zb').html('Validate complete!');
-				//window.location.href = '/';
-				//rebootWait();
+				$('#prg_zb').html('<span style="color:green">✅ Flash complete!</span>');
+				if (zbEventSource) {
+					zbEventSource.close();
+					zbEventSource = null;
+				}
+				$("#updButton_zb").prop("disabled", false);
+				
+				if (originalRefreshInterval) {
+					window.logRefreshInterval = originalRefreshInterval;
+				}
 			}, 250);
 		}
-		//const data = e.data.replaceAll("`", "<br>");
-		//$(modalBtns).html("");
-		//$("#zbFlshPgsTxt").html(data);
-		//$(".progress").addClass(classHide);
-		//$(modalBody).html(e.data).css("color", "red");
-		//modalAddClose();
-
-
 	}, false);
+
+    // ← 信息事件 - 关键修改：收到 Validating 立即切换
+    zbEventSource.addEventListener('ZB_FW_info', function (e) {
+        console.log("ℹ️ Info:", e.data);
+        
+        // ← 收到"Validating firmware"时，立即切换到烧录阶段
+        if (e.data.includes("Validating")) {
+            $('#prg_zb').html('⚡ Validating and flashing...');
+            $('#bar_zb').css('width', '0%');
+        }
+    }, false);
+
+    // ← 错误事件
+    zbEventSource.addEventListener('ZB_FW_err', function (e) {
+        console.error("❌ Error:", e.data);
+        $('#prg_zb').html('<span style="color:red">❌ ' + e.data + '</span>');
+        $("#updButton_zb").prop("disabled", false);
+        if (zbEventSource) {
+            zbEventSource.close();
+            zbEventSource = null;
+        }
+    }, false);
 }
 
 function modalAddSpiner() {
@@ -629,63 +785,6 @@ function modalAddSpiner() {
 	}).appendTo(modalBtns);
 }
 
-function startEvents() {
-	$(modalBtns).html("");
-	modalAddSpiner();
-	$(modalBody).html("");
-	$("<div>", {
-		id: "zbFlshPgsTxt",
-		text: "Waiting for device..."
-	}).appendTo(modalBody);
-	$("<div>", {
-		"class": "progress",
-		append: $("<div>", {
-			"class": "progress-bar progress-bar-striped progress-bar-animated",
-			id: "zbFlshPrgs",
-			style: "width: 100%;"
-		})
-	}).appendTo(modalBody);
-	var source = new EventSource('/events');
-	source.addEventListener('open', function (e) {
-		console.log("Events Connected");
-	}, false);
-
-	source.addEventListener('error', function (e) {
-		if (e.target.readyState != EventSource.OPEN) {
-			console.log("Events Err");
-		}
-	}, false);
-
-	source.addEventListener('ZB_FW_prgs', function (e) {
-		const val = e.data + "%";
-		$("#zbFlshPrgs").text(val);
-		$("#zbFlshPrgs").css("width", val);
-	}, false);
-
-	source.addEventListener('ZB_FW_info', function (e) {
-		const data = e.data.replaceAll("`", "<br>");
-		if (data == "[start]") $("#zbFlshPrgs").removeClass("progress-bar-animated");
-		$("#zbFlshPgsTxt").html(data);
-		if (e.data.indexOf("Update done!") > 0) {
-			$(".progress").addClass(classHide);
-			$(modalBody).css("color", "green");
-			setTimeout(() => {
-				$(modalBtns).html("");
-				modalAddClose();
-				source.close();
-			}, 1000);
-		}
-	}, false);
-
-	source.addEventListener('ZB_FW_err', function (e) {
-		const data = e.data.replaceAll("`", "<br>");
-		$(modalBtns).html("");
-		$("#zbFlshPgsTxt").html(data);
-		$(".progress").addClass(classHide);
-		$(modalBody).html(e.data).css("color", "red");
-		modalAddClose();
-	}, false);
-}
 
 function modalAddClose() {
 	$('<button>', {
@@ -713,80 +812,102 @@ function modalConstructor(type, params) {
 			$(headerText).text("Zigbee OTA update");
 			$(modalBody).html("Fetching firmware information...");
 			modalAddSpiner();
-			$.get(zbFwInfoUrl, function (data) {
-				const fw = JSON.parse(data);
-				const flashZBrow = "#flashZBrow";
-				const rows = 5;
-				$.get(apiLink + api.actions.API_GET_PARAM + "&param=zbRev", function (curZbVer) {
-					const cl = "col-sm-12 mb-2 ";
-					$(modalBody).html("");
+			
+			processResponsesZB().then(zbData => {
+				if (!zbData || !zbData.fwInfo) {
+					$(modalBody).html("Error fetching firmware information<br>Check your network!").css("color", "red");
 					$(modalBtns).html("");
 					modalAddClose();
-					$('<div>', {
-						"class": "container",
-						style: "max-width : 400px",
-						append: $("<div>", {
-							"class": "row",
-							id: "flashZBrow"
-						})
-					}).appendTo(modalBody);
-					$("<span>", {
-						"class": cl,
-						text: "Your current firmware revision: " + curZbVer
-					}).appendTo(flashZBrow);
-					$("<hr>", {
-						"class": "border border-dark border-top"
-					}).appendTo(flashZBrow);
-					$("<span>", {
-						"class": cl,
-						text: "Awaiable coordinator firmware:"
-					}).appendTo(flashZBrow);
-					$("<textarea>", {
-						"class": cl + "form-control",
-						text: "Revision: " + fw.coordinator.rev + "\nRelease notes:\n" + fw.coordinator.notes,
-						rows: rows,
-						disabled: ""
-					}).appendTo(flashZBrow);
-					$("<button>", {
-						"class": cl + "btn btn-warning",
-						text: "Flash Coordinator " + fw.coordinator.rev,
-						click: function () {
-							startEvents();
-							$.get(apiLink + api.actions.API_FLASH_ZB + "&fwurl=" + fw.coordinator.link, function () {
-
-							});
+					return;
+				}
+				
+				let fwData = zbData.fwInfo;
+				let curZbVer = zbData.localVersion;
+				const cl = "col-sm-12 mb-2 ";
+				
+				$(modalBody).html("");
+				$(modalBtns).html("");
+				modalAddClose();
+				
+				$('<div>', {
+					"class": "container",
+					style: "max-width : 400px",
+					append: $("<div>", {
+						"class": "row",
+						id: "flashZBrow"
+					})
+				}).appendTo(modalBody);
+				
+				$("<span>", {
+					"class": cl,
+					text: "Your current firmware revision: " + curZbVer
+				}).appendTo("#flashZBrow");
+				
+				$("<hr>", {
+					"class": "border border-dark border-top"
+				}).appendTo("#flashZBrow");
+				
+				let coordinatorFw = null;
+				
+				if (Array.isArray(fwData)) {
+					coordinatorFw = fwData.find(fw => 
+						fw.name && fw.name.toLowerCase().includes("coordinator") &&
+						fw.firmwareType && fw.firmwareType.toLowerCase().includes("zigbee")
+					);
+					
+				} 
+				
+				if (!coordinatorFw) {
+					$(modalBody).html("Error: No firmware found in JSON").css("color", "red");
+					$(modalBtns).html("");
+					modalAddClose();
+					return;
+				}
+				
+				$("<span>", {
+					"class": cl,
+					text: "Available Coordinator firmware:"
+				}).appendTo("#flashZBrow");
+				
+				$("<textarea>", {
+					"class": cl + "form-control",
+					text: "Revision: " + coordinatorFw.version + "\nFile: " + coordinatorFw.name + "\nDescription: " + (coordinatorFw.firmwareDesc || 'N/A'),
+					rows: 5,
+					disabled: ""
+				}).appendTo("#flashZBrow");
+				
+				$("<button>", {
+					"class": cl + "btn btn-warning",
+					text: "Flash Coordinator " + coordinatorFw.version,
+					click: function () {
+						let fwUrl = coordinatorFw.link;
+						
+						// ← 确保是 raw 链接
+						if (fwUrl.includes("github.com")) {
+							fwUrl = fwUrl.replace("github.com", "raw.githubusercontent.com")
+										.replace("/blob/", "/");
 						}
-					}).appendTo(flashZBrow);
-
-					$("<hr>", {
-						"class": "border border-dark border-top"
-					}).appendTo(flashZBrow);
-					$("<span>", {
-						"class": cl,
-						text: "Awaiable router firmware:"
-					}).appendTo(flashZBrow);
-					$("<textarea>", {
-						"class": cl + "form-control",
-						text: "Revision: " + fw.router.rev + "\nRelease notes:\n" + fw.router.notes,
-						rows: rows,
-						disabled: ""
-					}).appendTo(flashZBrow);
-					$("<button>", {
-						"class": cl + "btn btn-warning",
-						text: "Flash Router " + fw.router.rev,
-						click: function () {
-							startEvents();
-							$.get(apiLink + api.actions.API_FLASH_ZB + "&fwurl=" + fw.router.link, function () {
-
-							});
-						}
-					}).appendTo(flashZBrow);
-				});
-
-			}).fail(function () {
+						
+						// ← URL 编码（处理特殊字符）
+						fwUrl = encodeURIComponent(fwUrl);
+						
+						console.log("🚀 Flash URL:", decodeURIComponent(fwUrl));
+						
+						startEvents();
+						$.get(apiLink + api.actions.API_FLASH_ZB + "&fwurl=" + fwUrl, function (data) {
+							console.log("📥 API Response:", data);
+						}).fail(function (xhr, status, error) {
+							console.error("❌ API Error:", status, error);
+							$(modalBody).html("API request failed: " + error).css("color", "red");
+						});
+					}
+				}).appendTo("#flashZBrow");
+				
+			}).catch(function (err) {
 				$(modalBody).html("Error fetching firmware information<br>Check your network!").css("color", "red");
 				$(modalBtns).html("");
 				modalAddClose();
+				console.error('Zigbee OTA error:', err);
 			});
 			break;
 		case "flashWarning":
@@ -887,6 +1008,96 @@ function modalConstructor(type, params) {
 					closeModal();
 					localStorage.setItem('update_notify', 1);
 					//espFlashGitWait();
+				}
+			}).appendTo(modalBtns);
+			break;
+		//选择zigbee固件类型
+		case "zbFirmwareSelect":
+			$(headerText).text("Select Zigbee Firmware Type");
+			$(modalBody).html("");
+			$(modalBtns).html("");
+			
+			$('<div>', {
+				"class": "container",
+				style: "max-width: 400px",
+				append: $("<div>", {
+					"class": "row",
+					id: "zbFirmwareSelectRow"
+				})
+			}).appendTo(modalBody);
+
+			$("<button>", {
+				"class": "col-sm-12 mb-2 btn btn-primary",
+				text: "Coordinator",
+				click: function () {
+					showZigbeeVersionInfo("coordinator");
+				}
+			}).appendTo("#zbFirmwareSelectRow");
+			
+			$("<button>", {
+				"class": "col-sm-12 mb-2 btn btn-outline-primary",
+				text: "Router",
+				click: function () {
+					showZigbeeVersionInfo("router");
+				}
+			}).appendTo("#zbFirmwareSelectRow");
+			
+			$('<button>', {
+				type: "button",
+				"class": "col-sm-12 btn btn-secondary",
+				text: "Cancel",
+				click: function () {
+					closeModal();
+				}
+			}).appendTo("#zbFirmwareSelectRow");
+			break;
+		//显示zigbee固件信息
+		case "zbVersionInfo":
+			$(headerText).text("Latest Zigbee Firmware");
+			$(modalBody).html(params.chglog);
+			$('<div>', {
+				"class": "alert alert-info",
+				html: params.text
+			}).prependTo(modalBody);
+			
+			// ✅ 添加空值检查
+			if (latestZbFirmware) {
+				const localVer = latestZbFirmware.localVersion || "unknown";
+				const remoteVer = latestZbFirmware.version || "unknown";
+				
+				if (remoteVer !== "unknown" && localVer !== "unknown") {
+					const isNewer = remoteVer > localVer;
+					if (isNewer) {
+						$('<div>', {
+							"class": "alert alert-success mt-2",
+							html: `<strong>✅ Update Available!</strong><br>
+								Current: v${localVer} → Latest: v${remoteVer}`
+						}).appendTo(modalBody);
+					} else if (remoteVer === localVer) {
+						$('<div>', {
+							"class": "alert alert-secondary mt-2",
+							html: `<strong>✓ Up to date</strong><br>
+								Current version: v${localVer}`
+						}).appendTo(modalBody);
+					}
+				}
+			}
+			
+			$('<button>', {
+				type: "button",
+				"class": "btn btn-primary",
+				text: "Close",
+				click: function () {
+					closeModal();
+				}
+			}).appendTo(modalBtns);
+			$('<button>', {
+				type: "button",
+				"class": "btn btn-warning",
+				text: "Update Now",
+				click: function () {
+					closeModal();
+					zbFlashGitWait();
 				}
 			}).appendTo(modalBtns);
 			break;
@@ -1253,23 +1464,32 @@ function readfile(file) {
 }
 
 function logRefresh(ms) {
-	var logUpd = setInterval(() => {
-		$.get(apiLink + api.actions.API_GET_LOG, function (data) {
-			if ($("#console").length) {//elem exists
-				$("#console").val(data);
-			} else {
-				clearInterval(logUpd);
-			}
-		});
-	}, ms);
+    // ← 烧录期间暂停日志刷新
+    if ($("#prg_zb").length && $("#bar_zb").css("width") !== "0%") {
+        console.log("⏸️ Pausing log refresh during firmware update");
+        return;
+    }
+    
+    var logUpd = setInterval(() => {
+        $.get(apiLink + api.actions.API_GET_LOG, function (data) {
+            if ($("#console").length) {
+                $("#console").val(data);
+            } else {
+                clearInterval(logUpd);
+            }
+        });
+    }, ms);
 }
 
 async function fetchData(url, isJson = true) {
-	if (isJson) {
-		return await $.getJSON(url);
-	} else {
-		return await $.get(url);
-	}
+    // 为 JSON 请求添加时间戳，防止缓存
+    if (isJson) {
+        const separator = url.includes('?') ? '&' : '?';
+        url = url + separator + '_t=' + Date.now();
+        return await $.getJSON(url);
+    } else {
+        return await $.get(url);
+    }
 }
 
 async function processResponses() {
@@ -1331,6 +1551,199 @@ function checkLatestESPrelease() {
 	});
 
 }
+
+
+// ========== Zigbee 版本信息获取函数 ==========
+// 简化后：只使用主 URL
+async function processResponsesZB() {
+    try {
+        let [fwData, localVerData] = await Promise.all([
+            fetchData(zbFwInfoUrl, true),
+            fetchData('/api?action=1&param=zbRev', false)
+        ]);
+
+
+		console.log("📋 Raw firmware data length:", Array.isArray(fwData) ? fwData.length : 'not array');
+        console.log("📋 Raw firmware data:", fwData);
+
+        return { 
+            fwInfo: fwData,
+            localVersion: localVerData.trim()
+        };
+    } catch (error) {
+        console.error('Error while getting Zigbee versions:', error);
+        throw error;
+    }
+}
+
+async function processResponsesZB_GitInfo() {
+	try {
+		// 获取 Zigbee 固件 JSON 数据（单个对象，不是数组）
+		let jsonUrl = zbFwInfoUrl;
+		// 获取 Zigbee 本地版本
+		let textUrl = '/api?action=1&param=zbRev';
+
+		let [fwData, localVerData] = await Promise.all([
+			fetchData(jsonUrl, true),
+			fetchData(textUrl, false)
+		]);
+
+		// fwData 是单个对象，直接使用
+		let coordinatorFw = fwData;
+		
+		// 兼容处理：如果是数组，取第一个
+		if (Array.isArray(fwData)) {
+			coordinatorFw = fwData[0];
+		}
+
+		// 构造与 GitHub Releases API 相同的格式
+		let jsonData = {
+			tag_name: coordinatorFw ? coordinatorFw.version : "unknown",
+			body: coordinatorFw ? (coordinatorFw.firmwareDesc || "No changelog available") : "No firmware information available",
+			assets: [{
+				download_count: coordinatorFw ? (coordinatorFw.download_count || 0) : 0
+			}]
+		};
+
+		return { 
+			jsonData: jsonData,
+			textData: localVerData.trim()
+		};
+	} catch (error) {
+		console.error('Error while getting Zigbee Git info:', error);
+		throw error;
+	}
+}
+
+// ✅ 添加全局标志，防止重复请求
+let isZbVersionLoading = false;
+let latestZbFirmware = null;
+
+async function showZigbeeVersionInfo(firmwareType) {
+	// ✅ 防止重复点击
+	if (isZbVersionLoading) {
+		console.log("Already loading, ignore...");
+		return;
+	}
+	isZbVersionLoading = true;
+	
+	try {
+		// ✅ 只显示一次模态框（加载状态）
+		modalConstructor("zbVersionInfo", { 
+			text: "Loading firmware information...", 
+			chglog: "<div class='spinner-border text-primary' role='status'></div> Loading..." 
+		});
+		
+		let fwData = null;
+		let localVerData = null;
+		
+		try {
+			console.log("🔍 Trying firmware URL:", zbFwInfoUrl);
+			[fwData, localVerData] = await Promise.all([
+				fetchData(zbFwInfoUrl, true),
+				fetchData('/api?action=1&param=zbRev', false)
+			]);
+			if (fwData) {
+				console.log("✅ Successfully loaded firmware from:", zbFwInfoUrl);
+			}
+		} catch (err) {
+			console.warn(`❌ Failed to load from ${zbFwInfoUrl}:`, err.message || err);
+		}
+
+		console.log('📋 Zigbee fwData:', fwData);
+		console.log('🔢 Zigbee localVerData:', localVerData);
+		console.log('🎯 Selected firmwareType:', firmwareType);
+
+		// ✅ 检查数据是否为空
+		if (!fwData || (Array.isArray(fwData) && fwData.length === 0)) {
+			$(modalBody).html(
+				"<div class='alert alert-warning'>" +
+				"<strong>No firmware data available.</strong><br>" +
+				"Please check your internet connection or try again later.<br>" +
+				"</div>"
+			);
+			isZbVersionLoading = false;
+			return;
+		}
+
+		// 过滤固件：匹配 coordinator 或 router
+		// 第一个匹配项
+		let selectedFw = Array.isArray(fwData) ? fwData.find(fw => {
+			const name = fw.name ? fw.name.toLowerCase() : "";
+			const fwType = fw.firmwareType ? fw.firmwareType.toLowerCase() : "";
+			
+			if (firmwareType === "coordinator") {
+				// 匹配名称含 "coordinator" 或类型为 "zigbee"（且非 router）
+				return name.includes("coordinator") || (fwType === "zigbee");
+			} else if (firmwareType === "router") {
+				return name.includes("router") || fwType.includes("router");
+			}
+			return false;
+		}) : null;
+
+		console.log('✅ Selected firmware:', selectedFw);
+
+		if (!selectedFw) {
+			$(modalBody).html(
+				"<div class='alert alert-warning'>" +
+				"<strong>No firmware found for '" + firmwareType + "'</strong><br>" +
+				"Available firmware types:<br>" +
+				"<ul>" +
+				(Array.isArray(fwData) ? fwData.map(fw => 
+					"<li>" + (fw.name || 'N/A') + " - " + (fw.firmwareType || 'N/A') + "</li>"
+				).join('') : '<li>Unknown format</li>') +
+				"</ul>" +
+				"</div>"
+			);
+			isZbVersionLoading = false;
+			return;
+		}
+
+		// ✅ 保存固件信息到全局变量
+		latestZbFirmware = {
+			...selectedFw,
+			localVersion: localVerData ? localVerData.trim() : "unknown"
+		};
+		console.log('💾 Saved firmware info:', latestZbFirmware);
+
+		// 构造显示内容
+		const text = "Local version v" + latestZbFirmware.localVersion + 
+			". GitHub version " + latestZbFirmware.version + 
+			", File: " + latestZbFirmware.name + 
+			", Description: " + (latestZbFirmware.firmwareDesc || "N/A");
+
+		const chglog = `<p><strong>Firmware Details:</strong></p>
+			<ul>
+				<li><strong>Name:</strong> ${latestZbFirmware.name}</li>
+				<li><strong>Version:</strong> ${latestZbFirmware.version}</li>
+				<li><strong>Type:</strong> ${latestZbFirmware.firmwareType || "N/A"}</li>
+				<li><strong>Description:</strong> ${latestZbFirmware.firmwareDesc || "N/A"}</li>
+				<li><strong>Baud Rate:</strong> ${latestZbFirmware.baudRate || "N/A"}</li>
+				<li><strong>Dongle Type:</strong> ${latestZbFirmware.dongleType || "N/A"}</li>
+			</ul>`;
+
+		// ✅ 直接更新 DOM
+		$(modalBody).html(chglog);
+		$('<div>', {
+			"class": "alert alert-info",
+			html: text
+		}).prependTo(modalBody);
+
+	} catch (error) {
+		console.error('💥 Error while getting Zigbee version info:', error);
+		$(modalBody).html(
+			"<div class='alert alert-danger'>" +
+			"<strong>Error fetching version information.</strong><br>" +
+			"Please check your network connection.<br>" +
+			"<small>" + (error.message || error) + "</small>" +
+			"</div>"
+		);
+	} finally {
+		// ✅ 重置加载标志
+		isZbVersionLoading = false;
+	}
+}
+
 
 // ========== 多语言支持 i18next ==========
 const languages = [

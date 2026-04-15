@@ -7,20 +7,22 @@
 
 // #define DEBUG
 // ESP32 PINS TO CONTROL LAN8720
-#define ETH_CLK_MODE_1 ETH_CLOCK_GPIO17_OUT
-#define ETH_POWER_PIN_ALTERNATIVE_1 5
-#define ETH_POWER_PIN_1 -1
-#define ETH_TYPE_1 ETH_PHY_LAN8720
-#define ETH_ADDR_1 0
-#define ETH_MDC_PIN_1 23
-#define ETH_MDIO_PIN_1 18
+#define ETH_CLK_MODE_1                ETH_CLOCK_GPIO17_OUT       // 8720时钟引脚：GPIO17输出时钟
+#define ETH_POWER_PIN_ALTERNATIVE_1   5                          // 8720复位引脚
+#define ETH_POWER_PIN_1               -1                         // 未用
+#define ETH_TYPE_1                    ETH_PHY_LAN8720            // 8720 PHY类型
+#define ETH_ADDR_1                    0                          // 8720 PHY地址：悬空，内部弱下拉
+#define ETH_MDC_PIN_1                 23                         // 8720 MDC引脚：GPIO23
+#define ETH_MDIO_PIN_1                18                         // 8720 MDO引脚：GPIO18
 // ESP32 PINS TO CONTROL CC2652P
-#define CC2652P_RST 16
-#define CC2652P_FLASH 32
-#define CC2652P_RXD 36
-#define CC2652P_TXD 4
-#define BTN 35
-#define MODE_SWITCH 33
+#define CC2652P_RST                   16                         // CC2652P 复位引脚
+#define CC2652P_FLASH                 32                         // CC2652P 片选引脚
+#define CC2652P_RXD                   36                         // CC2652P 串口接收引脚
+#define CC2652P_TXD                   4                          // CC2652P 串口发送引脚
+#define BTN                           35                         // BTN 按键
+#define MODE_SWITCH                   33                         // MODE SWITCH 按键
+
+
 #define DEBOUNCE_TIME 70
 
 #define TCP_LISTEN_PORT 9999
@@ -57,44 +59,44 @@ extern const char *deviceModel;
 
 struct ConfigSettingsStruct
 {
-  char ssid[50];
-  char password[50];
-  char ipAddressWiFi[18];
-  char ipMaskWiFi[16];
-  char ipGWWiFi[18];
-  bool dhcpWiFi;
-  bool dhcp;
-  bool connectedEther;
-  char ipAddress[18];
-  char ipMask[16];
-  char ipGW[18];
-  int serialSpeed;
-  int socketPort;
-  bool disableWeb;
-  int refreshLogs;
-  char hostname[50];
-  bool connectedSocket[10];
-  int connectedClients;
-  unsigned long socketTime;
-  int tempOffset;
-  bool webAuth;
-  char webUser[50];
-  char webPass[50];
-  bool disableLedUSB;
-  bool disableLedPwr;
-  // bool disablePingCtrl;
-  bool disableLeds;
-  COORDINATOR_MODE_t coordinator_mode;
-  COORDINATOR_MODE_t prevCoordinator_mode; // for button
-  bool keepWeb;
-  bool apStarted;
-  bool wifiWebSetupInProgress;
-  bool fwEnabled;
-  IPAddress fwIp;
+    char ssid[50];                     // WiFi SSID
+    char password[50];                 // WiFi password
+    char ipAddressWiFi[18];            // WiFi IP address
+    char ipMaskWiFi[16];               // WiFi mask
+    char ipGWWiFi[18];                 // WiFi gateway
+    bool dhcpWiFi;                     // WiFi DHCP
+    bool dhcp;                         // Ethernet DHCP
+    bool connectedEther;               // Ethernet connected
+    char ipAddress[18];                // Ethernet IP address
+    char ipMask[16];                   // Ethernet mask
+    char ipGW[18];                     // Ethernet gateway
+    int serialSpeed;                   // Serial speed
+    int socketPort;                    // Socket port
+    bool disableWeb;                   // Web server enabled
+    int refreshLogs;                   // Logs refresh interval
+    char hostname[50];                 // Hostname
+    bool connectedSocket[10];          // Socket connected
+    int connectedClients;              // Connected clients
+    unsigned long socketTime;          // Socket time
+    int tempOffset;                    // Temperature offset
+    bool webAuth;                      // Web server authentication
+    char webUser[50];                  // Web server user
+    char webPass[50];                  // Web server password
+    bool disableLedUSB;                // Disable LED USB
+    bool disableLedPwr;                // Disable LED PWR
+    // bool disablePingCtrl;
+    bool disableLeds;                  // Disable LEDs
+    COORDINATOR_MODE_t coordinator_mode;            // Coordinator mode
+    COORDINATOR_MODE_t prevCoordinator_mode;        // Coordinator previous mode
+    bool keepWeb;                      // Keep web server
+    bool apStarted;                    // AP started
+    bool wifiWebSetupInProgress;       // WiFi web setup in progress
+    bool fwEnabled;                    // Firmware update enabled
+    IPAddress fwIp;                    // Firmware update IP
 
-  bool zbLedState;
-  bool zbFlashing;
-  char timeZone[50];
+    bool zbLedState;                   // ZB LED state
+    bool zbFlashing;                   // ZB LED flashing
+    char timeZone[50];                 // Time zone
 };
 
 struct MqttSettingsStruct

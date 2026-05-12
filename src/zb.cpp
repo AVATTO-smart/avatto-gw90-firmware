@@ -160,7 +160,7 @@ void zbCheck()
         clearS2Buffer();
         printLogMsg("[ZBCHK] Connection OK");
     }
-    digitalWrite(LED_PWR, 0);
+    digitalWrite(LED_PWR, 1);
     digitalWrite(LED_USB, 0);
 }
 

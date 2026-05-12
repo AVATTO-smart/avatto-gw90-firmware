@@ -1,0 +1,2 @@
+SSID: ezsmart_factory_test
+PWD: ezsmart@2026

@@ -22,11 +22,11 @@ public:
     int bslPin() const { return _bsl_pin; }
     bool bslLevel() const { return _bsl_level - 1; } // 0 error, 1 low, 2 high
     bool bslAddr() const { return _bsl_addr; }       // 0 - all seriers, 1 - P/R 7 series
+    uint32_t getBinSize() const { return _bin_max_address; };
 
-
-    bool validateChecksum(); // Построчная валидация контрольной суммы
-    bool checkBSLConfiguration(); // Проверка конфигурации BSL
-
+    bool validateChecksum(); 
+    bool checkBSLConfiguration(); 
+    
 
 private:
     const char *_filename;
@@ -42,8 +42,9 @@ private:
     int _bsl_pin = 0;
     bool _bsl_valid = false;
     int _bsl_addr = 0;
-
     size_t _totalSize = 0;
+    uint32_t _bin_max_address = 0;
+    uint32_t _bin_extended_addr = 0;
 
     // const uint32_t CCFG_ADDRESS = 0x057FD8; // all others
     const uint32_t ALL_CHIP_ADDRESS = 0x057FD8;

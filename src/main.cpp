@@ -1205,13 +1205,6 @@ void setup()
 
   // zig connection & leds testing
   Serial2.begin(115200, SERIAL_8N1, CC2652P_RXD, CC2652P_TXD); // start zigbee serial
-  zbInit();
-  if(digitalRead(BTN))
-  {
-    factory_test();
-  }
-  //-----------------
-  attachInterrupt(digitalPinToInterrupt(BTN), btnInterrupt, FALLING);
 
   if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED, "/lfs2", 10))
   {
@@ -1260,6 +1253,15 @@ void setup()
   {
     DEBUG_PRINTLN(F("Config files load OK"));
   }
+
+  zbInit();
+  if(digitalRead(BTN) && ConfigSettings.coordinator_mode != COORDINATOR_MODE_USB)
+  {
+    factory_test();
+  }
+  //-----------------
+  attachInterrupt(digitalPinToInterrupt(BTN), btnInterrupt, FALLING);
+
   Serial.println("\n[INIT] Configuring LED initial state...");
   Serial.print("[INIT] disableLeds config: ");
   Serial.println(ConfigSettings.disableLeds ? "true" : "false");

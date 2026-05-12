@@ -415,7 +415,7 @@ function apiGetPage(page, doneCall) {
 								const tempValue = parseFloat(valueToSet);
 								if (!isNaN(tempValue)) {
 									// 计算百分比（最高温度60°C）
-									const percentage = Math.min((tempValue / 60) * 100, 100);
+									const percentage = Math.min((tempValue / 90) * 100, 100);
 									$('#prgTemp').css('width', percentage + '%');
 								}
 							}
@@ -1674,9 +1674,9 @@ async function showZigbeeVersionInfo(firmwareType) {
 			
 			if (firmwareType === "coordinator") {
 				// 匹配名称含 "coordinator" 或类型为 "zigbee"（且非 router）
-				return name.includes("coordinator") || (fwType === "zigbee");
+				return name.includes("coordinator") && (fwType === "zigbee");
 			} else if (firmwareType === "router") {
-				return name.includes("router") || fwType.includes("router");
+				return name.includes("router") && (fwType === "zigbee");
 			}
 			return false;
 		}) : null;
